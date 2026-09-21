@@ -33,3 +33,5 @@ sysinfo.txt
 [Bb]uilds/
 [Mm]aterialLibrary/
 [Uu]ser[Ss]ettings/
+.vsconfig
+*.slnx
