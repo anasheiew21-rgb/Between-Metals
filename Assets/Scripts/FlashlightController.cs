@@ -11,7 +11,7 @@ public class FlashlightController : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F))
+        if (KeyBindings.Down(KeyBindings.Action.Flashlight) && Time.timeScale > 0f)
         {
             flashlight.enabled = !flashlight.enabled;
         }
