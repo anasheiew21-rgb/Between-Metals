@@ -24,6 +24,7 @@ public class PlayerController : MonoBehaviour
         float z = Input.GetAxis("Vertical");
 
         Vector3 movement = transform.right * x + transform.forward * z;
+        movement = Vector3.ClampMagnitude(movement, 1f);
 
         // Correr
         float currentSpeed = Input.GetKey(KeyCode.LeftShift)
