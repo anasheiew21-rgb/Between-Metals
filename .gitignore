@@ -1,39 +1,21 @@
-.utmp/
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
 
-# Unity generated folders
-/[Ll]ibrary/
-/[Tt]emp/
-/[Oo]bj/
-/[Bb]uild/
-/[Bb]uilds/
-/[Ll]ogs/
-/[Uu]ser[Ss]ettings/
-
-# Logs
-*.log
-
-# Blender backup
-*.blend1
-*.blend1.meta
-
-# Memory captures
-/[Mm]emoryCaptures/
-
-# Recordings
-/[Rr]ecordings/
-
-# Visual Studio / IDE
 .vs/
 .vscode/
-.gradle/
+.idea/
 
-# Generated project files
 *.csproj
 *.unityproj
 *.sln
-*.slnx
 *.suo
-*.tmp
 *.user
 *.userprefs
 *.pidb
@@ -42,43 +24,12 @@
 *.pdb
 *.mdb
 *.opendb
-*.VC.db
 
-# Unity generated meta files
-*.pidb.meta
-*.pdb.meta
-*.mdb.meta
+.DS_Store
+Thumbs.db
 
-# Crash reports
 sysinfo.txt
-mono_crash.*
 
-# Builds
-*.apk
-*.aab
-*.unitypackage
-*.unitypackage.meta
-*.app
-
-# Crashlytics
-crashlytics-build.properties
-
-# TestRunner generated files
-InitTestScene*.unity*
-
-# Addressables
-/ServerData
-/[Aa]ssets/StreamingAssets/aa*
-/[Aa]ssets/AddressableAssetsData/link.xml*
-/[Aa]ssets/Addressables_Temp*
-/[Aa]ssets/AddressableAssetsData/*/*.bin*
-
-# Visual Scripting generated files
-/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db
-/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db.meta
-/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers
-/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
-
-# UI Toolkit generated files
-/UIElementsSchema/
-/[Aa]ssets/[Ss]ceneDependencyCache*
+[Bb]uilds/
+[Mm]aterialLibrary/
+[Uu]ser[Ss]ettings/
