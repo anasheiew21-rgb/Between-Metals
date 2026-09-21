@@ -20,14 +20,14 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
         // Movimiento
-        float x = Input.GetAxis("Horizontal");
-        float z = Input.GetAxis("Vertical");
+        float x = KeyBindings.Axis(KeyBindings.Action.Left, KeyBindings.Action.Right);
+        float z = KeyBindings.Axis(KeyBindings.Action.Back, KeyBindings.Action.Forward);
 
         Vector3 movement = transform.right * x + transform.forward * z;
         movement = Vector3.ClampMagnitude(movement, 1f);
 
         // Correr
-        float currentSpeed = Input.GetKey(KeyCode.LeftShift)
+        float currentSpeed = KeyBindings.Held(KeyBindings.Action.Sprint)
             ? sprintSpeed
             : walkSpeed;
 

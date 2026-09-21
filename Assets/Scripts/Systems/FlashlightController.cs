@@ -11,7 +11,7 @@ public class FlashlightController : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F))
+        if (KeyBindings.Down(KeyBindings.Action.Flashlight) && !Menu.IsOpen)
         {
             flashlight.enabled = !flashlight.enabled;
         }

@@ -26,6 +26,9 @@ public class MouseLook : MonoBehaviour
 
     void Update()
     {
+        // Con el menu abierto el juego esta en pausa: la camara no debe girar
+        if (Menu.IsOpen) return;
+
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * SensitivityScale;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * SensitivityScale;
 
