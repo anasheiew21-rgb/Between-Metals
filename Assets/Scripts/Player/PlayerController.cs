@@ -31,7 +31,10 @@ public class PlayerController : MonoBehaviour
             ? sprintSpeed
             : walkSpeed;
 
-        // Gravedad
+        // La velocidad solo afecta al plano horizontal
+        Vector3 velocity = movement * currentSpeed;
+
+        // Gravedad (independiente de walkSpeed/sprintSpeed)
         if (controller.isGrounded && verticalVelocity < 0)
         {
             verticalVelocity = -2f;
@@ -39,9 +42,9 @@ public class PlayerController : MonoBehaviour
 
         verticalVelocity += gravity * Time.deltaTime;
 
-        movement.y = verticalVelocity;
+        velocity.y = verticalVelocity;
 
         // Aplicar movimiento
-        controller.Move(movement * currentSpeed * Time.deltaTime);
+        controller.Move(velocity * Time.deltaTime);
     }
 }
