@@ -48,6 +48,18 @@ public class PlayerInteraction : MonoBehaviour
             $"Objeto: {hit.collider.gameObject.name} | " +
             $"Distancia: {hit.distance:F2}"
         );
+
+        if (hit.collider.TryGetComponent<IInteractable>(out IInteractable interactable))
+        {
+            Debug.Log($"Objeto interactuable detectado: {hit.collider.gameObject.name}");
+
+            interactable.Interact();
+            Debug.Log($"Interact() ejecutado sobre: {hit.collider.gameObject.name}");
+        }
+        else
+        {
+            Debug.Log($"Objeto NO interactuable: {hit.collider.gameObject.name}");
+        }
     }
     else
     {
