@@ -10,7 +10,7 @@ public class PlayerInteraction : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.E))
+        if (KeyBindings.Down(KeyBindings.Action.Interact))
         {
             TryInteract();
         }

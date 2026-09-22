@@ -3,16 +3,16 @@ using UnityEngine;
 // Teclas configurables. Se guardan en PlayerPrefs y sobreviven entre partidas.
 public static class KeyBindings
 {
-    public enum Action { Forward, Back, Left, Right, Sprint, Flashlight }
+    public enum Action { Forward, Back, Left, Right, Sprint, Flashlight, Interact }
 
     public static readonly string[] Names =
     {
-        "Avanzar", "Retroceder", "Izquierda", "Derecha", "Correr", "Linterna"
+        "Avanzar", "Retroceder", "Izquierda", "Derecha", "Correr", "Linterna", "Interacción"
     };
 
     static readonly KeyCode[] defaults =
     {
-        KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.LeftShift, KeyCode.F
+        KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.LeftShift, KeyCode.F, KeyCode.E
     };
 
     const string Prefix = "Key_";
