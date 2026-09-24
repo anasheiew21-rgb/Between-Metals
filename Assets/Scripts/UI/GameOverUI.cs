@@ -6,6 +6,11 @@ using UnityEngine.SceneManagement;
 // como el resto de los menus del proyecto.
 public class GameOverUI : MonoBehaviour
 {
+    // Menu la consulta para no forzar el cursor bloqueado por encima de esta pantalla: Update()
+    // sigue corriendo aunque Time.timeScale sea 0, asi que sin este chequeo Menu le ganaria de
+    // mano al cursor libre todos los frames.
+    public static bool EstaMostrando { get; private set; }
+
     PlayerStats stats;
     bool mostrando;
     GUIStyle tituloStyle, botonStyle;
@@ -28,11 +33,18 @@ public class GameOverUI : MonoBehaviour
     void OnDestroy()
     {
         if (stats != null) stats.AlMorir -= MostrarPantalla;
+        EstaMostrando = false; // por si la escena se recarga con la pantalla abierta
     }
 
     void MostrarPantalla()
     {
+        // Si por lo que sea la tienda estaba abierta, se cierra primero: si no, CerrarTienda()
+        // volveria a bloquear el cursor por encima de esta pantalla (ella tambien lo toca).
+        ShopManager tienda = FindAnyObjectByType<ShopManager>();
+        if (tienda != null) tienda.CerrarTienda();
+
         mostrando = true;
+        EstaMostrando = true;
         Time.timeScale = 0f;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;

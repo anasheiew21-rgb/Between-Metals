@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 // Teclas configurables. Se guardan en PlayerPrefs y sobreviven entre partidas.
 public static class KeyBindings
@@ -125,6 +126,7 @@ public class Menu : MonoBehaviour
     void Update()
     {
         if (ShopManager.HayTiendaAbierta) return; // la tienda maneja su propio Esc para cerrarse
+        if (GameOverUI.EstaMostrando) return;     // no pisar el cursor libre de la pantalla de Game Over
 
         if (waiting.HasValue)
         {
@@ -181,6 +183,12 @@ public class Menu : MonoBehaviour
         Time.timeScale = 1f;
     }
 
+    void Restart()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
     void Quit()
     {
 #if UNITY_EDITOR
@@ -218,7 +226,12 @@ public class Menu : MonoBehaviour
     void DrawMain()
     {
         if (GUILayout.Button(started ? "Continuar" : "Jugar", buttonStyle)) Close();
+<<<<<<< HEAD
         if (GUILayout.Button("Opciones", buttonStyle)) page = Page.Settings;
+=======
+        if (GUILayout.Button("Controles", buttonStyle)) page = Page.Controls;
+        if (GUILayout.Button("Reiniciar", buttonStyle)) Restart();
+>>>>>>> d428ab43fcacd46950aba05a420504d57702618f
         if (GUILayout.Button("Salir", buttonStyle)) Quit();
     }
 
