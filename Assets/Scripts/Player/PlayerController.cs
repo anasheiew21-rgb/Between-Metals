@@ -6,6 +6,11 @@ public class PlayerController : MonoBehaviour
     public float walkSpeed = 5f;
     public float sprintSpeed = 8f;
 
+    [Header("Salto")]
+    [SerializeField] private float jumpForce = 7f;
+    [SerializeField] private float groundCheckDistance = 0.2f;
+    [SerializeField] private LayerMask groundMask = ~0;
+
     [Header("Gravedad")]
     public float gravity = -20f;
 
@@ -39,10 +44,18 @@ public class PlayerController : MonoBehaviour
         // La velocidad solo afecta al plano horizontal
         Vector3 velocity = movement * currentSpeed;
 
-        // Gravedad (independiente de walkSpeed/sprintSpeed)
-        if (controller.isGrounded && verticalVelocity < 0)
+        // Suelo: se comprueba con un SphereCast ademas de controller.isGrounded porque
+        // isGrounded solo se actualiza tras el ultimo Move() y puede llegar un frame tarde.
+        bool grounded = IsGrounded();
+
+        if (grounded && verticalVelocity < 0)
         {
             verticalVelocity = -2f;
+        }
+
+        if (grounded && KeyBindings.Down(KeyBindings.Action.Jump))
+        {
+            verticalVelocity = jumpForce;
         }
 
         verticalVelocity += gravity * Time.deltaTime;
@@ -51,5 +64,15 @@ public class PlayerController : MonoBehaviour
 
         // Aplicar movimiento
         controller.Move(velocity * Time.deltaTime);
+    }
+
+    private bool IsGrounded()
+    {
+        if (controller.isGrounded) return true;
+
+        Vector3 origin = transform.position + Vector3.up * controller.radius;
+        float castDistance = controller.radius + groundCheckDistance;
+
+        return Physics.SphereCast(origin, controller.radius * 0.9f, Vector3.down, out _, castDistance, groundMask, QueryTriggerInteraction.Ignore);
     }
 }

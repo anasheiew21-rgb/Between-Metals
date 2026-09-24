@@ -3,16 +3,16 @@ using UnityEngine;
 // Teclas configurables. Se guardan en PlayerPrefs y sobreviven entre partidas.
 public static class KeyBindings
 {
-    public enum Action { Forward, Back, Left, Right, Sprint, Flashlight }
+    public enum Action { Forward, Back, Left, Right, Sprint, Flashlight, Jump }
 
     public static readonly string[] Names =
     {
-        "Avanzar", "Retroceder", "Izquierda", "Derecha", "Correr", "Linterna"
+        "Avanzar", "Retroceder", "Izquierda", "Derecha", "Correr", "Linterna", "Saltar"
     };
 
     static readonly KeyCode[] defaults =
     {
-        KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.LeftShift, KeyCode.F
+        KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.LeftShift, KeyCode.F, KeyCode.Space
     };
 
     const string Prefix = "Key_";
@@ -83,12 +83,17 @@ public class Menu : MonoBehaviour
     // Los scripts del jugador lo consultan para ignorar la entrada mientras el menu esta abierto
     public static bool IsOpen { get; private set; }
 
-    enum Page { Main, Controls }
+    enum Page { Main, Controls, Settings }
+
+    const string SensitivityKey = "Sensitivity";
+    const string VolumeKey = "Volume";
 
     bool open;
     bool started;
     Page page;
     KeyBindings.Action? waiting;
+    float sensitivity;
+    float volume;
 
     readonly System.Array allKeys = System.Enum.GetValues(typeof(KeyCode));
     GUIStyle titleStyle, labelStyle, buttonStyle;
@@ -103,6 +108,10 @@ public class Menu : MonoBehaviour
 
     void Start()
     {
+        sensitivity = PlayerPrefs.GetFloat(SensitivityKey, 1.0f);
+        volume = PlayerPrefs.GetFloat(VolumeKey, 1.0f);
+        AudioListener.volume = volume;
+
         if (openOnStart) Open();
         else started = true;
     }
@@ -124,7 +133,8 @@ public class Menu : MonoBehaviour
         else if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (!open) Open();
-            else if (page == Page.Controls) page = Page.Main;
+            else if (page == Page.Controls) page = Page.Settings;
+            else if (page == Page.Settings) page = Page.Main;
             else if (started) Close();
         }
 
@@ -200,15 +210,49 @@ public class Menu : MonoBehaviour
         GUILayout.Label(gameTitle, titleStyle);
         GUILayout.Space(20f);
         if (page == Page.Main) DrawMain();
-        else DrawControls();
+        else if (page == Page.Controls) DrawControls();
+        else DrawSettings();
         GUILayout.EndArea();
     }
 
     void DrawMain()
     {
         if (GUILayout.Button(started ? "Continuar" : "Jugar", buttonStyle)) Close();
-        if (GUILayout.Button("Controles", buttonStyle)) page = Page.Controls;
+        if (GUILayout.Button("Opciones", buttonStyle)) page = Page.Settings;
         if (GUILayout.Button("Salir", buttonStyle)) Quit();
+    }
+
+    void DrawSettings()
+    {
+        GUILayout.Label("Opciones", labelStyle);
+        GUILayout.Space(10f);
+
+        if (GUILayout.Button("Controles", buttonStyle)) page = Page.Controls;
+        GUILayout.Space(10f);
+
+        GUILayout.Label("Sensibilidad: " + sensitivity.ToString("0.00"), labelStyle);
+        float newSensitivity = GUILayout.HorizontalSlider(sensitivity, 0.1f, 5f);
+        if (!Mathf.Approximately(newSensitivity, sensitivity))
+        {
+            sensitivity = newSensitivity;
+            PlayerPrefs.SetFloat(SensitivityKey, sensitivity);
+            PlayerPrefs.Save();
+        }
+
+        GUILayout.Space(10f);
+
+        GUILayout.Label("Volumen: " + volume.ToString("0.00"), labelStyle);
+        float newVolume = GUILayout.HorizontalSlider(volume, 0f, 1f);
+        if (!Mathf.Approximately(newVolume, volume))
+        {
+            volume = newVolume;
+            AudioListener.volume = volume;
+            PlayerPrefs.SetFloat(VolumeKey, volume);
+            PlayerPrefs.Save();
+        }
+
+        GUILayout.Space(20f);
+        if (GUILayout.Button("Volver", buttonStyle)) page = Page.Main;
     }
 
     void DrawControls()
@@ -236,7 +280,7 @@ public class Menu : MonoBehaviour
         }
         if (GUILayout.Button("Volver", buttonStyle))
         {
-            page = Page.Main;
+            page = Page.Settings;
             waiting = null;
         }
     }
