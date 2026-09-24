@@ -84,14 +84,14 @@ public class Menu : MonoBehaviour
     // Los scripts del jugador lo consultan para ignorar la entrada mientras el menu esta abierto
     public static bool IsOpen { get; private set; }
 
-    enum Page { Main, Controls, Settings }
+    enum EstadoMenu { Principal, Opciones, Controles }
 
     const string SensitivityKey = "Sensitivity";
     const string VolumeKey = "Volume";
 
     bool open;
     bool started;
-    Page page;
+    EstadoMenu estado;
     KeyBindings.Action? waiting;
     float sensitivity;
     float volume;
@@ -130,14 +130,13 @@ public class Menu : MonoBehaviour
 
         if (waiting.HasValue)
         {
-            ListenForKey();
+            if (Input.GetKeyDown(KeyCode.Escape)) CancelarReasignacion();
+            else ListenForKey();
         }
         else if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (!open) Open();
-            else if (page == Page.Controls) page = Page.Settings;
-            else if (page == Page.Settings) page = Page.Main;
-            else if (started) Close();
+            else VolverAtras();
         }
 
         // Se aplica cada frame para que MouseLook no vuelva a bloquear el cursor
@@ -147,12 +146,6 @@ public class Menu : MonoBehaviour
 
     void ListenForKey()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            waiting = null;
-            return;
-        }
-
         foreach (KeyCode k in allKeys)
         {
             if (k == KeyCode.None || k >= KeyCode.Mouse0) continue; // solo teclado
@@ -165,11 +158,16 @@ public class Menu : MonoBehaviour
         }
     }
 
+    void CancelarReasignacion()
+    {
+        waiting = null;
+    }
+
     void Open()
     {
         open = true;
         IsOpen = true;
-        page = Page.Main;
+        estado = EstadoMenu.Principal;
         waiting = null;
         Time.timeScale = 0f;
     }
@@ -181,6 +179,38 @@ public class Menu : MonoBehaviour
         started = true;
         waiting = null;
         Time.timeScale = 1f;
+    }
+
+    void AbrirOpciones()
+    {
+        estado = EstadoMenu.Opciones;
+        waiting = null;
+    }
+
+    void AbrirControles()
+    {
+        estado = EstadoMenu.Controles;
+        waiting = null;
+    }
+
+    // Punto unico de "atras": si esta reasignando una tecla, cancela; si esta en
+    // Opciones o Controles, vuelve directo al Principal; si ya esta en el Principal, cierra el menu.
+    void VolverAtras()
+    {
+        if (waiting.HasValue)
+        {
+            CancelarReasignacion();
+            return;
+        }
+
+        if (estado == EstadoMenu.Opciones || estado == EstadoMenu.Controles)
+        {
+            estado = EstadoMenu.Principal;
+        }
+        else if (started)
+        {
+            Close();
+        }
     }
 
     void Restart()
@@ -217,21 +247,17 @@ public class Menu : MonoBehaviour
         GUILayout.BeginArea(new Rect((w - 460f) / 2f, 90f, 460f, 540f));
         GUILayout.Label(gameTitle, titleStyle);
         GUILayout.Space(20f);
-        if (page == Page.Main) DrawMain();
-        else if (page == Page.Controls) DrawControls();
-        else DrawSettings();
+        if (estado == EstadoMenu.Principal) DrawMain();
+        else if (estado == EstadoMenu.Opciones) DrawSettings();
+        else DrawControls();
         GUILayout.EndArea();
     }
 
     void DrawMain()
     {
         if (GUILayout.Button(started ? "Continuar" : "Jugar", buttonStyle)) Close();
-<<<<<<< HEAD
-        if (GUILayout.Button("Opciones", buttonStyle)) page = Page.Settings;
-=======
-        if (GUILayout.Button("Controles", buttonStyle)) page = Page.Controls;
+        if (GUILayout.Button("Opciones", buttonStyle)) AbrirOpciones();
         if (GUILayout.Button("Reiniciar", buttonStyle)) Restart();
->>>>>>> d428ab43fcacd46950aba05a420504d57702618f
         if (GUILayout.Button("Salir", buttonStyle)) Quit();
     }
 
@@ -240,7 +266,7 @@ public class Menu : MonoBehaviour
         GUILayout.Label("Opciones", labelStyle);
         GUILayout.Space(10f);
 
-        if (GUILayout.Button("Controles", buttonStyle)) page = Page.Controls;
+        if (GUILayout.Button("Controles", buttonStyle)) AbrirControles();
         GUILayout.Space(10f);
 
         GUILayout.Label("Sensibilidad: " + sensitivity.ToString("0.00"), labelStyle);
@@ -265,7 +291,7 @@ public class Menu : MonoBehaviour
         }
 
         GUILayout.Space(20f);
-        if (GUILayout.Button("Volver", buttonStyle)) page = Page.Main;
+        if (GUILayout.Button("Volver", buttonStyle)) estado = EstadoMenu.Principal;
     }
 
     void DrawControls()
@@ -293,7 +319,7 @@ public class Menu : MonoBehaviour
         }
         if (GUILayout.Button("Volver", buttonStyle))
         {
-            page = Page.Settings;
+            estado = EstadoMenu.Principal;
             waiting = null;
         }
     }
