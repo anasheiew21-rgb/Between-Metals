@@ -17,7 +17,7 @@ public static class MapaBuilder
     // ---- Tamano del laberinto, en celdas. Cambialo y vuelve a generar ----
     const int Filas = 13;    // celdas de norte a sur
     const int Columnas = 11; // celdas de oeste a este
-    const int Semilla = 12345; // mismo numero = mismo laberinto. Cambialo para obtener otro distinto.
+    const int Semilla = 424242; // mismo numero = mismo laberinto. Cambialo para obtener otro distinto.
 
     // ---- Medidas en metros ----
     const float AnchoCalle = 6f;   // ancho de cada pasillo (y grosor de un muro)
@@ -85,7 +85,10 @@ public static class MapaBuilder
         public int r, c;
     }
 
-    [MenuItem("Between Metals/Mapa/Generar mapa")]
+    // Mismo comando en dos lugares del menu: uno arriba de todo (acceso rapido) y el otro
+    // agrupado con el resto de los comandos de Mapa.
+    [MenuItem("Between Metals/Generar Mapa", priority = 1)]
+    [MenuItem("Between Metals/Mapa/Generar mapa", priority = 100)]
     static void Generar()
     {
         if (!ValidarZonasAmplias()) return;
@@ -165,7 +168,7 @@ public static class MapaBuilder
             posInicio, ladoSalida, salidaExterior, baseComerciante, AlturaHabitacion));
     }
 
-    [MenuItem("Between Metals/Mapa/Borrar mapa generado")]
+    [MenuItem("Between Metals/Mapa/Borrar mapa generado", priority = 101)]
     static void Borrar()
     {
         GameObject raiz = GameObject.Find(NombreRaiz);
@@ -179,7 +182,7 @@ public static class MapaBuilder
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
     }
 
-    [MenuItem("Between Metals/Mapa/Borrar prototipo anterior")]
+    [MenuItem("Between Metals/Mapa/Borrar prototipo anterior", priority = 102)]
     static void BorrarPrototipo()
     {
         string[] nombres = { "Floor", "Wall_Left", "Wall_Right", "Ceiling" };

@@ -8,50 +8,51 @@ public class PlayerInteraction : MonoBehaviour
     [Header("Cámara")]
     [SerializeField] private Camera playerCamera;
 
+    // A que IInteractable se le esta apuntando ahora mismo (o null si no hay ninguno en rango)
+    private IInteractable objetivoActual;
+
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.E))
+        ActualizarObjetivo();
+
+        if (objetivoActual != null && Input.GetKeyDown(KeyCode.E))
         {
-            TryInteract();
+            objetivoActual.Interactuar();
         }
     }
 
-    private void TryInteract()
-{
-    if (playerCamera == null)
+    // Se corre todos los frames (no solo al presionar E) para que el cartel de "Presiona E..."
+    // aparezca apenas la camara apunta a algo interactuable, y desaparezca al dejar de mirarlo.
+    private void ActualizarObjetivo()
     {
-        Debug.LogWarning("PlayerInteraction: no hay una cámara asignada.");
-        return;
-    }
+        IInteractable encontrado = null;
 
-    Ray ray = new Ray(
-        playerCamera.transform.position,
-        playerCamera.transform.forward
-    );
+        if (playerCamera == null)
+        {
+            Debug.LogWarning("PlayerInteraction: no hay una cámara asignada.");
+        }
+        else
+        {
+            Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
 
-    Debug.DrawRay(
-        ray.origin,
-        ray.direction * interactionDistance,
-        Color.red,
-        2f
-    );
+            if (Physics.Raycast(
+                ray,
+                out RaycastHit hit,
+                interactionDistance,
+                Physics.AllLayers,
+                QueryTriggerInteraction.Collide))
+            {
+                // GetComponentInParent por si el Collider esta en un hijo (ej. el mesh) y el
+                // componente interactuable esta en la raiz del objeto.
+                encontrado = hit.collider.GetComponentInParent<IInteractable>();
+            }
+        }
 
-    if (Physics.Raycast(
-        ray,
-        out RaycastHit hit,
-        interactionDistance,
-        Physics.AllLayers,
-        QueryTriggerInteraction.Collide))
-    {
-        Debug.Log(
-            $"Raycast golpeó: {hit.collider.name} | " +
-            $"Objeto: {hit.collider.gameObject.name} | " +
-            $"Distancia: {hit.distance:F2}"
-        );
+        if (encontrado == objetivoActual) return;
+
+        objetivoActual = encontrado;
+
+        if (objetivoActual != null) PromptInteraccion.Instancia?.Mostrar(objetivoActual.TextoPrompt);
+        else PromptInteraccion.Instancia?.Ocultar();
     }
-    else
-    {
-        Debug.Log("Raycast NO golpeó ningún Collider.");
-    }
-}
 }

@@ -115,6 +115,8 @@ public class Menu : MonoBehaviour
 
     void Update()
     {
+        if (ShopManager.HayTiendaAbierta) return; // la tienda maneja su propio Esc para cerrarse
+
         if (waiting.HasValue)
         {
             ListenForKey();
