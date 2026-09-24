@@ -97,7 +97,7 @@ public class Menu : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoCreate()
     {
-        if (FindFirstObjectByType<Menu>() != null) return;
+        if (FindAnyObjectByType<Menu>() != null) return;
         new GameObject("Menu").AddComponent<Menu>();
     }
 

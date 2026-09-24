@@ -10,11 +10,13 @@ public class PlayerController : MonoBehaviour
     public float gravity = -20f;
 
     private CharacterController controller;
+    private PlayerStats stats;
     private float verticalVelocity;
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        stats = GetComponent<PlayerStats>();
     }
 
     void Update()
@@ -26,10 +28,13 @@ public class PlayerController : MonoBehaviour
         Vector3 movement = transform.right * x + transform.forward * z;
         movement = Vector3.ClampMagnitude(movement, 1f);
 
-        // Correr
-        float currentSpeed = KeyBindings.Held(KeyBindings.Action.Sprint)
-            ? sprintSpeed
-            : walkSpeed;
+        // Correr: solo si hay estamina. PlayerStats es quien la consume/regenera; aca solo se
+        // le avisa si este frame se esta corriendo de verdad (tecla apretada y moviendose).
+        bool intentaCorrer = KeyBindings.Held(KeyBindings.Action.Sprint) && movement.sqrMagnitude > 0.01f;
+        bool corriendo = intentaCorrer && (stats == null || stats.PuedeCorrer);
+        if (stats != null) stats.estaCorriendo = corriendo;
+
+        float currentSpeed = corriendo ? sprintSpeed : walkSpeed;
 
         // La velocidad solo afecta al plano horizontal
         Vector3 velocity = movement * currentSpeed;
