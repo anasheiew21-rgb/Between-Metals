@@ -18,6 +18,9 @@ public class PlayerStats : MonoBehaviour
     [Tooltip("Cuanto hay que esperar sin correr antes de que la estamina empiece a regenerarse")]
     [SerializeField] private float staminaRechargeDelay = 1.5f;
 
+    [Header("Economia")]
+    [SerializeField] private int oro = 0;
+
     public float MaxHealth => maxHealth;
     public float CurrentHealth => currentHealth;
     public float MaxStamina => maxStamina;
@@ -31,8 +34,11 @@ public class PlayerStats : MonoBehaviour
     [HideInInspector] public bool estaCorriendo;
     public bool PuedeCorrer => currentStamina > 0f;
 
+    public int Oro => oro;
+
     public event Action<float, float> AlCambiarVida;     // (actual, maximo)
     public event Action<float, float> AlCambiarEstamina; // (actual, maximo)
+    public event Action<int> AlCambiarOro;                // (actual)
     public event Action AlMorir;
 
     private float tiempoSinCorrer;
@@ -49,6 +55,7 @@ public class PlayerStats : MonoBehaviour
         // Notifica el estado inicial para que la UI arranque ya con las barras correctas
         AlCambiarVida?.Invoke(currentHealth, maxHealth);
         AlCambiarEstamina?.Invoke(currentStamina, maxStamina);
+        AlCambiarOro?.Invoke(oro);
     }
 
     void Update()
@@ -72,6 +79,28 @@ public class PlayerStats : MonoBehaviour
 
         currentHealth = Mathf.Min(maxHealth, currentHealth + cantidad);
         AlCambiarVida?.Invoke(currentHealth, maxHealth);
+    }
+
+    // La tienda consulta esto antes de intentar cobrar una compra
+    public bool PuedePagar(int cantidad) => cantidad >= 0 && oro >= cantidad;
+
+    // Devuelve false sin tocar nada si no alcanza el oro; el llamador (ShopManager) decide que
+    // hacer en ese caso.
+    public bool GastarOro(int cantidad)
+    {
+        if (!PuedePagar(cantidad)) return false;
+
+        oro -= cantidad;
+        AlCambiarOro?.Invoke(oro);
+        return true;
+    }
+
+    public void AgregarOro(int cantidad)
+    {
+        if (cantidad <= 0) return;
+
+        oro += cantidad;
+        AlCambiarOro?.Invoke(oro);
     }
 
     void Die()

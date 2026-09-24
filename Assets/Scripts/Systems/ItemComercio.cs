@@ -9,4 +9,8 @@ public class ItemComercio
     public Sprite icono;
     public int precio = 10;
     public int cantidad = 1;
+
+    // Cuantas unidades de este item tiene el jugador comprado. No hay inventario propio todavia,
+    // asi que la tienda misma lo lleva; el dia que exista un inventario real esto se muda ahi.
+    [HideInInspector] public int cantidadJugador = 0;
 }

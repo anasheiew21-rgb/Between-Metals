@@ -1,9 +1,8 @@
 using UnityEngine;
 
-// Panel de la tienda del comerciante: lista de items con Comprar/Vender.
-// Todavia no hay un sistema de oro/inventario del jugador en el proyecto, asi que Comprar/Vender
-// por ahora solo mueven la cantidad del comerciante y lo dejan anotado en la consola; el enganche
-// real (restar oro, agregar al inventario del jugador) queda listo para cuando eso exista.
+// Panel de la tienda del comerciante: lista de items con Comprar/Vender, conectada al oro de
+// PlayerStats. La cantidad que el jugador posee de cada item se lleva en el propio
+// ItemComercio.cantidadJugador (todavia no hay un inventario separado del jugador).
 public class ShopManager : MonoBehaviour
 {
     [Header("Items en venta")]
@@ -12,11 +11,19 @@ public class ShopManager : MonoBehaviour
     [Header("Jugador (se bloquean mientras la tienda esta abierta)")]
     [SerializeField] private PlayerController controlador;
     [SerializeField] private MouseLook camaraJugador;
+    [Tooltip("Si se deja vacio, busca un PlayerStats en el jugador al arrancar")]
+    [SerializeField] private PlayerStats statsJugador;
 
     // Los demas scripts (Menu, PromptInteraccion) lo consultan para no superponerse con la tienda
     public static bool HayTiendaAbierta { get; private set; }
 
-    private GUIStyle tituloStyle, filaStyle, precioStyle, botonStyle;
+    private GUIStyle tituloStyle, filaStyle, precioStyle, botonStyle, oroStyle;
+    private int oroMostrado;
+
+    void Awake()
+    {
+        if (statsJugador == null) statsJugador = FindAnyObjectByType<PlayerStats>();
+    }
 
     void Update()
     {
@@ -49,6 +56,16 @@ public class ShopManager : MonoBehaviour
         Cursor.visible = true;
 
         PromptInteraccion.Instancia?.Ocultar();
+
+        ActualizarUI();
+    }
+
+    // Refresca el texto de oro mostrado en el panel. En OnGUI cada fila ya vuelve a leer el
+    // estado actual todos los frames, asi que lo unico que hace falta cachear es el oro; se llama
+    // al abrir la tienda y despues de cada Comprar/Vender para dejar la intencion explicita.
+    void ActualizarUI()
+    {
+        oroMostrado = statsJugador != null ? statsJugador.Oro : 0;
     }
 
     public void CerrarTienda()
@@ -80,6 +97,7 @@ public class ShopManager : MonoBehaviour
 
         GUILayout.BeginArea(new Rect((w - 520f) / 2f, 70f, 520f, 580f));
         GUILayout.Label("Comerciante", tituloStyle);
+        GUILayout.Label("Oro: " + oroMostrado, oroStyle);
         GUILayout.Space(20f);
 
         DibujarItems();
@@ -101,37 +119,45 @@ public class ShopManager : MonoBehaviour
         {
             GUILayout.BeginHorizontal();
 
-            GUILayout.Label(item.nombre, filaStyle, GUILayout.Width(220f));
-            GUILayout.Label(item.precio + " oro", precioStyle, GUILayout.Width(80f));
-            GUILayout.Label("x" + item.cantidad, precioStyle, GUILayout.Width(50f));
+            GUILayout.Label(item.nombre, filaStyle, GUILayout.Width(180f));
+            GUILayout.Label(item.precio + " oro", precioStyle, GUILayout.Width(70f));
+            GUILayout.Label("x" + item.cantidad, precioStyle, GUILayout.Width(40f));
 
-            GUI.enabled = item.cantidad > 0;
+            bool puedeComprar = item.cantidad > 0 && statsJugador != null && statsJugador.PuedePagar(item.precio);
+            GUI.enabled = puedeComprar;
             if (GUILayout.Button("Comprar", botonStyle)) Comprar(item);
-            GUI.enabled = true;
 
+            GUI.enabled = item.cantidadJugador > 0;
             if (GUILayout.Button("Vender", botonStyle)) Vender(item);
+            GUI.enabled = true;
 
             GUILayout.EndHorizontal();
             GUILayout.Space(4f);
         }
     }
 
-    // TODO: cuando exista un inventario/oro del jugador, restar el precio y agregarle el item
-    // en vez de solo descontarlo del stock del comerciante.
     void Comprar(ItemComercio item)
     {
-        if (item.cantidad <= 0) return;
+        if (item.cantidad <= 0 || statsJugador == null) return;
+        if (!statsJugador.GastarOro(item.precio)) return;
 
         item.cantidad--;
+        item.cantidadJugador++;
         Debug.Log("Comprado: " + item.nombre + " por " + item.precio + " oro. Quedan " + item.cantidad + " en la tienda.");
+
+        ActualizarUI();
     }
 
-    // TODO: cuando exista un inventario del jugador, sacarle el item y darle el oro en vez de
-    // solo sumarlo al stock del comerciante.
     void Vender(ItemComercio item)
     {
+        if (item.cantidadJugador <= 0 || statsJugador == null) return;
+
+        item.cantidadJugador--;
         item.cantidad++;
+        statsJugador.AgregarOro(item.precio);
         Debug.Log("Vendido: " + item.nombre + ". La tienda ahora tiene " + item.cantidad + ".");
+
+        ActualizarUI();
     }
 
     void ConstruirEstilos()
@@ -165,5 +191,13 @@ public class ShopManager : MonoBehaviour
             fixedHeight = 32f,
             fixedWidth = 90f
         };
+
+        oroStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 20,
+            alignment = TextAnchor.MiddleCenter,
+            fontStyle = FontStyle.Bold
+        };
+        oroStyle.normal.textColor = new Color(1f, 0.85f, 0.4f);
     }
 }
