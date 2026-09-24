@@ -21,6 +21,10 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        // Muerto no se mueve mas (redundante con Time.timeScale = 0 que pone GameOverUI, pero
+        // explicito: si algun dia esto corre sin esa pantalla, igual deja de andar).
+        if (stats != null && !stats.EstaViva) return;
+
         // Movimiento
         float x = KeyBindings.Axis(KeyBindings.Action.Left, KeyBindings.Action.Right);
         float z = KeyBindings.Axis(KeyBindings.Action.Back, KeyBindings.Action.Forward);

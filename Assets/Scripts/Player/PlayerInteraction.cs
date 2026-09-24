@@ -15,7 +15,9 @@ public class PlayerInteraction : MonoBehaviour
     {
         ActualizarObjetivo();
 
-        if (objetivoActual != null && Input.GetKeyDown(KeyCode.E))
+        // Con el menu de pausa abierto, 'E' no debe poder abrir la tienda (ni ninguna otra
+        // interaccion): primero hay que cerrar la pausa.
+        if (objetivoActual != null && !Menu.IsOpen && Input.GetKeyDown(KeyCode.E))
         {
             objetivoActual.Interactuar();
         }

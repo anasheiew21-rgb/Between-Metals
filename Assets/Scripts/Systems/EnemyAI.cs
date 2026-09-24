@@ -1,9 +1,13 @@
 using UnityEngine;
 
 // Enemigo con maquina de estados simple: Patrulla <-> Persecucion, mas ataque de cerca.
-// Movimiento por codigo (no NavMeshAgent): el laberinto generado por MapaBuilder no tiene un
-// NavMesh horneado, y agregar uno es un paso de Editor aparte. Si mas adelante se hornea un
-// NavMesh, este script se puede migrar a NavMeshAgent sin tocar la maquina de estados.
+// Movimiento por fisica (Rigidbody + Collider), no NavMeshAgent: el laberinto generado por
+// MapaBuilder no tiene un NavMesh horneado, y hornearlo es un paso de Editor aparte que no se
+// puede hacer sin tener Unity abierto. Con Rigidbody el enemigo SI choca contra los muros (antes,
+// sin Rigidbody, caia al ultimo recurso de mover el Transform directo, que no respeta colisiones).
+// Si mas adelante se hornea un NavMesh, esto se puede migrar a NavMeshAgent.SetDestination sin
+// tocar la maquina de estados (Patrullar/Perseguir siguen igual, solo cambia AplicarVelocidad).
+[RequireComponent(typeof(Rigidbody))]
 public class EnemyAI : MonoBehaviour
 {
     enum Estado { Patrulla, Persecucion }
@@ -40,7 +44,7 @@ public class EnemyAI : MonoBehaviour
 
     Transform jugador;
     PlayerStats statsJugador;
-    CharacterController controladorPropio; // opcional: si el enemigo tiene uno, se mueve con colisiones
+    Rigidbody rb;
     Collider[] propiosColliders; // para que el rayo de vision no se choque contra si mismo
 
     void Start()
@@ -50,8 +54,20 @@ public class EnemyAI : MonoBehaviour
         statsJugador = FindAnyObjectByType<PlayerStats>();
         if (statsJugador != null) jugador = statsJugador.transform;
 
-        controladorPropio = GetComponent<CharacterController>();
         propiosColliders = GetComponentsInChildren<Collider>();
+
+        // Rigidbody no cinematico: asi lo frena de verdad un muro en vez de atravesarlo.
+        // Sin gravedad porque el movimiento ya mantiene su propia altura (Y fija); sin rotacion
+        // fisica porque la rotacion la maneja MirarHacia() a mano.
+        // GetComponent en vez de confiar solo en [RequireComponent]: ese atributo agrega el
+        // Rigidbody cuando el componente se suma desde el editor, pero no si ya estaba puesto en
+        // el archivo de escena de antes (por eso el "object reference not set").
+        rb = GetComponent<Rigidbody>();
+        if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
+        rb.useGravity = false;
+        rb.constraints = RigidbodyConstraints.FreezeRotation;
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
     }
 
     void Update()
@@ -126,6 +142,7 @@ public class EnemyAI : MonoBehaviour
 
         if (distancia <= attackRange)
         {
+            DetenerMovimiento();
             MirarHacia(jugador.position);
             Atacar();
         }
@@ -146,21 +163,33 @@ public class EnemyAI : MonoBehaviour
     // Movimiento y vision
     // ---------------------------------------------------------------
 
-    // Mueve hacia el destino (mismo plano Y que el enemigo) a la velocidad dada.
+    // Mueve hacia el destino (mismo plano Y que el enemigo) a la velocidad dada, via Rigidbody:
+    // si en el camino hay un muro, el propio motor de fisica lo frena (no lo atraviesa).
     // Devuelve true cuando ya llego, para saber cuando esperar en un waypoint.
     bool MoverHacia(Vector3 destino, float velocidad)
     {
         Vector3 destinoPlano = new Vector3(destino.x, transform.position.y, destino.z);
         Vector3 diferencia = destinoPlano - transform.position;
 
-        if (diferencia.magnitude < 0.15f) return true;
+        if (diferencia.magnitude < 0.15f)
+        {
+            DetenerMovimiento();
+            return true;
+        }
 
-        Vector3 paso = diferencia.normalized * velocidad * Time.deltaTime;
-        if (controladorPropio != null) controladorPropio.Move(paso);
-        else transform.position += paso;
-
+        AplicarVelocidad(diferencia.normalized * velocidad);
         MirarHacia(destinoPlano);
         return false;
+    }
+
+    void AplicarVelocidad(Vector3 velocidadDeseada)
+    {
+        rb.linearVelocity = velocidadDeseada;
+    }
+
+    void DetenerMovimiento()
+    {
+        rb.linearVelocity = Vector3.zero;
     }
 
     void MirarHacia(Vector3 objetivo)

@@ -22,6 +22,7 @@ public class PlayerStats : MonoBehaviour
     public float CurrentHealth => currentHealth;
     public float MaxStamina => maxStamina;
     public float CurrentStamina => currentStamina;
+    // Mientras esta en false, PlayerController deja de procesar movimiento (ver su Update)
     public bool EstaViva => currentHealth > 0f;
 
     // PlayerController marca esto en true/false cada frame segun si el jugador esta
@@ -77,6 +78,12 @@ public class PlayerStats : MonoBehaviour
     {
         if (yaMurio) return;
         yaMurio = true;
+
+        // Se libera el cursor aca mismo (no solo en GameOverUI) para que el jugador pueda
+        // interactuar con la pantalla de Game Over aunque, por lo que sea, esta no exista.
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
         AlMorir?.Invoke();
     }
 
