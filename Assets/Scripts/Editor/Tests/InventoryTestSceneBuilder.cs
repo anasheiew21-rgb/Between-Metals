@@ -29,6 +29,12 @@ public static class InventoryTestSceneBuilder
         Build();
     }
 
+    [MenuItem("Between Metals/Tests/Validar escena de prueba de inventario")]
+    static void RunValidateFromMenu()
+    {
+        OpenSceneAndValidate();
+    }
+
     public static void BuildAndExit()
     {
         bool ok = false;
@@ -42,6 +48,38 @@ public static class InventoryTestSceneBuilder
         }
 
         if (Application.isBatchMode) EditorApplication.Exit(ok ? 0 : 1);
+    }
+
+    // Abre la escena de prueba ya existente y corre la misma validacion que Build(), sin
+    // reconstruirla ni guardarla: sirve para confirmar que InventoryTest.unity sigue en un
+    // estado valido despues de un merge, sin depender de que el generador siga siendo
+    // determinista.
+    // Batch: Unity.exe -batchmode -nographics -projectPath <ruta> -executeMethod InventoryTestSceneBuilder.ValidateAndExit -logFile <log>
+    public static void ValidateAndExit()
+    {
+        bool ok = false;
+        try
+        {
+            ok = OpenSceneAndValidate();
+        }
+        catch (Exception e)
+        {
+            Debug.LogException(e);
+        }
+
+        if (Application.isBatchMode) EditorApplication.Exit(ok ? 0 : 1);
+    }
+
+    static bool OpenSceneAndValidate()
+    {
+        if (ScenePath != RequiredScenePath)
+        {
+            Debug.LogError($"{Tag} ruta de escena inesperada: '{ScenePath}'");
+            return false;
+        }
+
+        EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        return Validate();
     }
 
     static bool Build()
