@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 // Autotest de editor de la lógica de la interfaz del inventario (RF06, HU-05, #16).
 // Casos CP-UI-01..13 sobre InventoryPanelState, con tiempo simulado.
@@ -176,8 +178,210 @@ public static class InventoryUISelfTest
             return after == bound ? null : $"el mensaje cambió a '{after}'";
         });
 
+        // CP-UI-14..18: InventoryUI.EnsureExists y la resuscripcion a sceneLoaded (HU-05, #16).
+        // A diferencia de los casos de arriba, estos corren contra la escena real de la corrida
+        // batch (InventoryUI busca PlayerStats/InventoryUI con FindAnyObjectByType, no recibe
+        // nada inyectado), asi que usan UiFixture para medir solo lo que cada caso crea y
+        // destruyen exactamente eso al final, sin asumir que la escena estaba vacia.
+
+        Run("CP-UI-14", "con un PlayerStats en la escena y sin InventoryUI, EnsureExists crea exactamente 1 InventoryUI", () =>
+        {
+            UiFixture fx = null;
+            try
+            {
+                fx = new UiFixture();
+                if (fx.CountNewInventoryUI() != 0) return "ya habia un InventoryUI nuevo antes de llamar a EnsureExists";
+
+                fx.CreatePlayerStats();
+                InventoryUI.EnsureExists();
+
+                int count = fx.CountNewInventoryUI();
+                return count == 1 ? null : $"se crearon {count} InventoryUI (se esperaba 1)";
+            }
+            finally
+            {
+                fx?.Destroy();
+            }
+        });
+
+        Run("CP-UI-15", "llamar EnsureExists dos veces deja 1 solo InventoryUI", () =>
+        {
+            UiFixture fx = null;
+            try
+            {
+                fx = new UiFixture();
+                fx.CreatePlayerStats();
+                InventoryUI.EnsureExists();
+                InventoryUI.EnsureExists();
+
+                int count = fx.CountNewInventoryUI();
+                return count == 1 ? null : $"hay {count} InventoryUI despues de llamar dos veces (se esperaba 1)";
+            }
+            finally
+            {
+                fx?.Destroy();
+            }
+        });
+
+        Run("CP-UI-16", "despues de destruir el InventoryUI, EnsureExists crea uno nuevo", () =>
+        {
+            UiFixture fx = null;
+            try
+            {
+                fx = new UiFixture();
+                fx.CreatePlayerStats();
+                InventoryUI.EnsureExists();
+
+                InventoryUI[] first = fx.NewInventoryUIs();
+                if (first.Length != 1) return $"setup invalido: {first.Length} InventoryUI antes de destruir (se esperaba 1)";
+                UnityEngine.Object.DestroyImmediate(first[0].gameObject);
+
+                InventoryUI.EnsureExists();
+                int count = fx.CountNewInventoryUI();
+                return count == 1 ? null : $"hay {count} InventoryUI despues de recrear (se esperaba 1)";
+            }
+            finally
+            {
+                fx?.Destroy();
+            }
+        });
+
+        Run("CP-UI-17", "sin PlayerStats en la escena, EnsureExists no crea nada", () =>
+        {
+            UiFixture fx = null;
+            try
+            {
+                fx = new UiFixture();
+                // No se crea ningun PlayerStats: si la escena de la corrida batch ya tuviera uno
+                // (por ejemplo si quedo abierta Prototype.unity o InventoryTest.unity), este caso
+                // no es representativo y se reporta en vez de dar un resultado enganoso.
+                if (UnityEngine.Object.FindAnyObjectByType<PlayerStats>() != null)
+                    return "la escena de la corrida batch ya tiene un PlayerStats; este caso no se puede validar aqui";
+
+                InventoryUI.EnsureExists();
+                int count = fx.CountNewInventoryUI();
+                return count == 0 ? null : $"se crearon {count} InventoryUI sin PlayerStats en la escena";
+            }
+            finally
+            {
+                fx?.Destroy();
+            }
+        });
+
+        Run("CP-UI-18", "invocar el arranque dos veces (simulando dos arranques sin recarga de dominio) no duplica la suscripcion a sceneLoaded", () =>
+        {
+            // Disparar un sceneLoaded real de forma confiable en modo batch, sin guardar ni
+            // cargar una escena, no es viable aca: en su lugar se verifica, por reflexion, que el
+            // campo interno que respalda el evento SceneManager.sceneLoaded solo contiene la
+            // suscripcion de InventoryUI una vez despues de invocar el arranque (AutoCrear, que
+            // hace -= seguido de += antes de suscribirse) dos veces seguidas.
+            FieldInfo sceneLoadedField = typeof(SceneManager).GetField("sceneLoaded", BindingFlags.NonPublic | BindingFlags.Static);
+            if (sceneLoadedField == null)
+                return "no se pudo ubicar por reflexion el campo interno de SceneManager.sceneLoaded (ver nota en el reporte)";
+
+            MethodInfo autoCrear = typeof(InventoryUI).GetMethod("AutoCrear", BindingFlags.NonPublic | BindingFlags.Static);
+            if (autoCrear == null) return "no se encontro InventoryUI.AutoCrear por reflexion";
+
+            Delegate original = (Delegate)sceneLoadedField.GetValue(null);
+            UiFixture fx = null;
+            try
+            {
+                fx = new UiFixture();
+                autoCrear.Invoke(null, null);
+                autoCrear.Invoke(null, null);
+
+                Delegate after = (Delegate)sceneLoadedField.GetValue(null);
+                int matches = 0;
+                if (after != null)
+                {
+                    foreach (Delegate d in after.GetInvocationList())
+                    {
+                        if (d.Method.DeclaringType == typeof(InventoryUI)) matches++;
+                    }
+                }
+                return matches == 1 ? null : $"la suscripcion de InventoryUI aparece {matches} veces en SceneManager.sceneLoaded (se esperaba 1)";
+            }
+            finally
+            {
+                sceneLoadedField.SetValue(null, original); // deja SceneManager.sceneLoaded como estaba antes del caso
+                fx?.Destroy();
+            }
+        });
+
         Debug.Log($"{Tag} RESULT: {passed} passed, {failed} failed");
         return failed == 0;
+    }
+
+    // Cada caso recibe nada y devuelve null si pasa, o el detalle del fallo. Para CP-UI-14..18,
+    // que no usan la Fixture de InventoryPanelState de abajo.
+    static void Run(string id, string description, Func<string> test)
+    {
+        string error;
+        try
+        {
+            error = test();
+        }
+        catch (Exception e)
+        {
+            error = $"excepción {e.GetType().Name}: {e.Message}";
+        }
+
+        if (error == null)
+        {
+            passed++;
+            Debug.Log($"{Tag} {id} PASS - {description}");
+        }
+        else
+        {
+            failed++;
+            Debug.LogError($"{Tag} {id} FAIL - {description} - {error}");
+        }
+    }
+
+    // Soporte de CP-UI-14..18: mide y limpia solo los InventoryUI/PlayerStats que cada caso crea,
+    // sin asumir que la escena de la corrida batch estaba vacia.
+    class UiFixture
+    {
+        readonly List<GameObject> created = new List<GameObject>();
+        readonly HashSet<InventoryUI> baselineUi;
+
+        public UiFixture()
+        {
+            baselineUi = new HashSet<InventoryUI>(UnityEngine.Object.FindObjectsByType<InventoryUI>(FindObjectsInactive.Include));
+        }
+
+        public PlayerStats CreatePlayerStats()
+        {
+            GameObject go = new GameObject("CP_UI_PlayerStats");
+            go.hideFlags = HideFlags.None;
+            PlayerStats stats = go.AddComponent<PlayerStats>();
+            created.Add(go);
+            return stats;
+        }
+
+        public InventoryUI[] NewInventoryUIs()
+        {
+            List<InventoryUI> list = new List<InventoryUI>();
+            foreach (InventoryUI ui in UnityEngine.Object.FindObjectsByType<InventoryUI>(FindObjectsInactive.Include))
+            {
+                if (!baselineUi.Contains(ui)) list.Add(ui);
+            }
+            return list.ToArray();
+        }
+
+        public int CountNewInventoryUI() => NewInventoryUIs().Length;
+
+        public void Destroy()
+        {
+            foreach (InventoryUI ui in NewInventoryUIs())
+            {
+                if (ui != null) UnityEngine.Object.DestroyImmediate(ui.gameObject);
+            }
+            foreach (GameObject go in created)
+            {
+                if (go != null) UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
     }
 
     // Cada caso recibe objetos nuevos y devuelve null si pasa, o el detalle del fallo.

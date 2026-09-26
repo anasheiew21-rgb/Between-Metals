@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 // Interfaz del inventario (RF06, HU-05, #16): panel con los lugares del inventario, selección,
 // uso del ítem seleccionado y aviso breve al recoger algo. Toda la lógica vive en
@@ -41,8 +42,24 @@ public class InventoryUI : MonoBehaviour
 
     GUIStyle titleStyle, slotStyle, textStyle, countStyle, messageStyle;
 
+    // RuntimeInitializeOnLoadMethod corre una sola vez; Reiniciar recarga la escena sin volver a
+    // dispararlo, asi que hace falta reaccionar a sceneLoaded para recrear el InventoryUI que se
+    // destruyo junto con la escena anterior.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoCrear()
+    {
+        EnsureExists();
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+    }
+
+    static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        EnsureExists();
+    }
+
+    /// <summary>Crea un InventoryUI si la escena tiene un PlayerStats y todavía no tiene uno. No hace nada en otro caso.</summary>
+    public static void EnsureExists()
     {
         if (FindAnyObjectByType<InventoryUI>() != null) return;
         if (FindAnyObjectByType<PlayerStats>() == null) return; // sin jugador (ej. un futuro menu de inicio), no hace falta
