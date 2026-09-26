@@ -14,4 +14,18 @@ public class ItemData : ScriptableObject
     public string description;
 
     public Sprite icon;
+
+    [Tooltip("Si es verdadero, el ítem se elimina del inventario al usarlo.")]
+    public bool consumeOnUse = true;
+
+#if UNITY_EDITOR
+    // Solo avisa: no corrige el valor, para no pisar datos del asset sin que nadie lo note.
+    private void OnValidate()
+    {
+        if (string.IsNullOrWhiteSpace(itemId))
+        {
+            Debug.LogWarning($"ItemData '{name}': itemId está vacío.", this);
+        }
+    }
+#endif
 }
