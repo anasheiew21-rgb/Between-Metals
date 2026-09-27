@@ -1,21 +1,24 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
-// Enemigo con maquina de estados simple: Patrulla <-> Persecucion, mas ataque de cerca.
-// Movimiento por fisica (Rigidbody + Collider), no NavMeshAgent: el laberinto generado por
-// MapaBuilder no tiene un NavMesh horneado, y hornearlo es un paso de Editor aparte que no se
-// puede hacer sin tener Unity abierto. Con Rigidbody el enemigo SI choca contra los muros (antes,
-// sin Rigidbody, caia al ultimo recurso de mover el Transform directo, que no respeta colisiones).
-// Si mas adelante se hornea un NavMesh, esto se puede migrar a NavMeshAgent.SetDestination sin
-// tocar la maquina de estados (Patrullar/Perseguir siguen igual, solo cambia AplicarVelocidad).
+// Enemigo con maquina de estados: Patrulla (o Deambular, si su ruta no es valida) -> Persecucion
+// -> Investigar -> Patrulla, mas ataque de cerca. HU-08 / RF10 / RF11 (issue #58).
+// Migrado de Rigidbody a NavMeshAgent: usa el NavMesh que arma NavMeshRuntimeBuilder en tiempo de
+// carga. El Rigidbody se mantiene en la escena (lo exige [RequireComponent]) pero se vuelve
+// cinematico: ya no empuja el movimiento, solo evita que otros sistemas de fisica lo ignoren.
 [RequireComponent(typeof(Rigidbody))]
 public class EnemyAI : MonoBehaviour
 {
-    enum Estado { Patrulla, Persecucion }
+    public enum Estado { Patrulla, Persecucion, Investigar }
 
     [Header("Patrulla")]
     [SerializeField] private Transform[] waypoints;
     [SerializeField] private float waitTimeAtWaypoint = 2f;
     [SerializeField] private float patrolSpeed = 2.5f;
+
+    [Header("Deambular (si la ruta de patrulla no tiene 2 o mas waypoints validos)")]
+    [SerializeField] private float radioDeambular = 25f;
 
     [Header("Deteccion (campo de vision)")]
     [SerializeField] private float detectionRadius = 10f;
@@ -25,68 +28,129 @@ public class EnemyAI : MonoBehaviour
     [Tooltip("Capas que puede bloquear la vision (muros, etc). Si el enemigo se tapa la vista a si mismo, sacale su propia capa de aca")]
     [SerializeField] private LayerMask capasBloqueoVision = ~0;
 
+    [Header("Oido (RF11: la via principal es evadir o esconderse)")]
+    [SerializeField] private float radioOido = 12f;
+    [Tooltip("Velocidad horizontal (CharacterController) del jugador a partir de la cual el enemigo lo puede oir")]
+    [SerializeField] private float umbralVelocidadRuido = 6f;
+
     [Header("Persecucion")]
     [SerializeField] private float chaseSpeed = 4.5f;
     [SerializeField] private float loseTargetDistance = 15f;
-    [Tooltip("Cuantos segundos sin ver al jugador (estando cerca) hasta volver a patrullar")]
+    [Tooltip("Cuantos segundos sin ver al jugador (estando cerca) hasta pasar a investigar")]
     [SerializeField] private float tiempoSinVerParaAbandonar = 3f;
+
+    [Header("Investigacion (ultima posicion conocida)")]
+    [SerializeField] private float tiempoInvestigacion = 3f;
 
     [Header("Ataque")]
     [SerializeField] private float attackRange = 1.5f;
     [SerializeField] private float attackDamage = 10f;
     [SerializeField] private float attackCooldown = 1.2f;
 
+    const float IntervaloActualizarDestinoPersecucion = 0.2f;
+    const float IntervaloDeteccion = 0.1f; // ~10 chequeos de vision por segundo (en vez de cada frame)
+    const float TiempoMaximoDeambular = 15f;
+    const float RadioBusquedaNavMesh = 3f;
+    const int IntentosElegirPuntoDeambular = 10;
+    const int MaxImpactosVision = 8;
+
     Estado estado = Estado.Patrulla;
     int indiceWaypoint;
     float tiempoEsperando;
     float tiempoSinVerJugador;
     float cooldownAtaqueRestante;
+    float tiempoInvestigando;
+    float tiempoDesdeUltimoDestino;
+    float tiempoDesdeUltimaDeteccion;
+    bool veAlJugadorCache;
+    bool tienePuntoDeambular;
+    float tiempoDeambulando;
+    Vector3 puntoDeambular;
+    Vector3 ultimaPosicionConocida;
+    bool avisoNavMeshLogueado;
+    bool avisoRutaLogueado;
 
     Transform jugador;
     PlayerStats statsJugador;
+    CharacterController controladorJugador;
+    NavMeshAgent agent;
     Rigidbody rb;
     Collider[] propiosColliders; // para que el rayo de vision no se choque contra si mismo
+    readonly List<Transform> rutaValida = new List<Transform>();
+    readonly RaycastHit[] impactosVision = new RaycastHit[MaxImpactosVision];
+    // NavMeshPath no se puede construir en un inicializador de campo (Unity lo prohibe fuera de
+    // Awake/Start), asi que se crea de manera perezosa la primera vez que hace falta.
+    NavMeshPath caminoTemporal;
+
+    NavMeshPath CaminoTemporal()
+    {
+        if (caminoTemporal == null) caminoTemporal = new NavMeshPath();
+        return caminoTemporal;
+    }
+
+    public int CantidadWaypointsValidos => rutaValida.Count;
+    public bool EstaDeambulando => rutaValida.Count < 2;
+    public Estado EstadoActual => estado;
 
     void Start()
     {
         // Se busca por PlayerStats en vez de por tag: en esta escena el objeto tageado "Player"
         // es una raiz que no se mueve, el que realmente camina es su hijo sin tag.
         statsJugador = FindAnyObjectByType<PlayerStats>();
-        if (statsJugador != null) jugador = statsJugador.transform;
+        if (statsJugador != null)
+        {
+            jugador = statsJugador.transform;
+            controladorJugador = statsJugador.GetComponent<CharacterController>();
+        }
 
         propiosColliders = GetComponentsInChildren<Collider>();
 
-        // Rigidbody no cinematico: asi lo frena de verdad un muro en vez de atravesarlo.
-        // Sin gravedad porque el movimiento ya mantiene su propia altura (Y fija); sin rotacion
-        // fisica porque la rotacion la maneja MirarHacia() a mano.
-        // GetComponent en vez de confiar solo en [RequireComponent]: ese atributo agrega el
-        // Rigidbody cuando el componente se suma desde el editor, pero no si ya estaba puesto en
-        // el archivo de escena de antes (por eso el "object reference not set").
-        rb = GetComponent<Rigidbody>();
-        if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
-        rb.useGravity = false;
-        rb.constraints = RigidbodyConstraints.FreezeRotation;
-        rb.interpolation = RigidbodyInterpolation.Interpolate;
-        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        InicializarNavegacion();
     }
 
     void Update()
     {
-        if (jugador == null) return;
+        if (jugador == null || agent == null) return;
+
+        if (!agent.isOnNavMesh)
+        {
+            AsegurarSobreNavMesh();
+            return;
+        }
 
         if (cooldownAtaqueRestante > 0f) cooldownAtaqueRestante -= Time.deltaTime;
 
-        bool veAlJugador = PuedeVerAlJugador();
+        // RF10: no hace falta chequear la vision cada frame, con ~10 veces por segundo alcanza.
+        tiempoDesdeUltimaDeteccion += Time.deltaTime;
+        if (tiempoDesdeUltimaDeteccion >= IntervaloDeteccion)
+        {
+            tiempoDesdeUltimaDeteccion = 0f;
+            veAlJugadorCache = PuedeVerAlJugador();
+        }
+        bool veAlJugador = veAlJugadorCache;
+
+        if (veAlJugador)
+        {
+            ultimaPosicionConocida = jugador.position;
+            if (estado != Estado.Persecucion) CambiarA(Estado.Persecucion);
+        }
+        else if (estado == Estado.Patrulla)
+        {
+            RevisarOido();
+        }
 
         switch (estado)
         {
             case Estado.Patrulla:
                 Patrullar();
-                if (veAlJugador) CambiarA(Estado.Persecucion);
                 break;
 
             case Estado.Persecucion:
                 Perseguir(veAlJugador);
+                break;
+
+            case Estado.Investigar:
+                Investigar();
                 break;
         }
     }
@@ -96,18 +160,127 @@ public class EnemyAI : MonoBehaviour
         estado = nuevo;
         tiempoSinVerJugador = 0f;
         tiempoEsperando = 0f;
+        tiempoInvestigando = 0f;
+        tiempoDesdeUltimoDestino = 0f;
+        tienePuntoDeambular = false;
+        tiempoDeambulando = 0f;
+
+        if (agent != null) agent.isStopped = false;
     }
 
     // ---------------------------------------------------------------
-    // Patrulla
+    // Navegacion (HU-08, #58)
+    // ---------------------------------------------------------------
+
+    // Publico y llamable repetidas veces (CP-ENE-07): agrega el NavMeshAgent si falta, lo ubica
+    // sobre el NavMesh y reconstruye la ruta de patrulla valida. No agrega/quita componentes de
+    // mas: el Rigidbody que ya trae el objeto solo se pasa a cinematico.
+    public void InicializarNavegacion()
+    {
+        AsegurarAgente();
+        AsegurarSobreNavMesh();
+        ConstruirRutaValida();
+    }
+
+    void AsegurarAgente()
+    {
+        agent = GetComponent<NavMeshAgent>();
+        if (agent == null) agent = gameObject.AddComponent<NavMeshAgent>();
+
+        agent.speed = patrolSpeed;
+        agent.stoppingDistance = Mathf.Max(0.05f, attackRange - 0.3f);
+        agent.acceleration = 12f;
+        agent.updateRotation = false; // la rotacion la maneja MirarHacia() a mano, igual que antes
+
+        rb = GetComponent<Rigidbody>();
+        if (rb != null) rb.isKinematic = true;
+    }
+
+    // Inicializacion perezosa: si el NavMesh todavia no estaba armado cuando el agente se creo,
+    // se reintenta cada frame (desde Update) hasta que SamplePosition encuentre un punto cercano.
+    void AsegurarSobreNavMesh()
+    {
+        if (agent == null || agent.isOnNavMesh) return;
+
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, RadioBusquedaNavMesh, NavMesh.AllAreas))
+        {
+            agent.Warp(hit.position);
+
+            // Si el enemigo arranca lejos del NavMesh (por ejemplo, con la Y de diseno en vez de
+            // la de la geometria real del piso), Warp() solo no alcanza para que isOnNavMesh de
+            // verdadero: hay que apagar y prender el agente ya con la posicion correcta para que
+            // se vuelva a registrar sobre el NavMesh.
+            if (!agent.isOnNavMesh)
+            {
+                agent.enabled = false;
+                transform.position = hit.position;
+                agent.enabled = true;
+            }
+        }
+        else if (!avisoNavMeshLogueado)
+        {
+            avisoNavMeshLogueado = true;
+            Debug.LogWarning($"{name}: no se encontro NavMesh a {RadioBusquedaNavMesh} m de {transform.position}. HU-08 #58");
+        }
+    }
+
+    // Descarta waypoints null o sin camino completo hacia ellos. Con 2 o mas validos, patrulla
+    // ciclica; si no, EstaDeambulando pasa a valer true y se usa ElegirPuntoDeambular().
+    void ConstruirRutaValida()
+    {
+        rutaValida.Clear();
+        List<string> descartados = null;
+
+        if (waypoints != null)
+        {
+            for (int i = 0; i < waypoints.Length; i++)
+            {
+                Transform wp = waypoints[i];
+                if (wp == null)
+                {
+                    if (descartados == null) descartados = new List<string>();
+                    descartados.Add($"[{i}] null");
+                    continue;
+                }
+
+                NavMeshPath camino = CaminoTemporal();
+                bool caminoCompleto = NavMesh.CalculatePath(transform.position, wp.position, NavMesh.AllAreas, camino)
+                    && camino.status == NavMeshPathStatus.PathComplete;
+
+                if (!caminoCompleto)
+                {
+                    if (descartados == null) descartados = new List<string>();
+                    descartados.Add($"[{i}] {wp.name} (sin camino completo)");
+                    continue;
+                }
+
+                rutaValida.Add(wp);
+            }
+        }
+
+        if (!avisoRutaLogueado && descartados != null)
+        {
+            avisoRutaLogueado = true;
+            Debug.LogWarning($"{name}: waypoints descartados: {string.Join(", ", descartados)}. HU-08 #58");
+        }
+
+        indiceWaypoint = 0;
+    }
+
+    // ---------------------------------------------------------------
+    // Patrulla / Deambular
     // ---------------------------------------------------------------
     void Patrullar()
     {
-        if (waypoints == null || waypoints.Length == 0) return;
+        if (agent != null) agent.speed = patrolSpeed;
 
-        Transform destino = waypoints[indiceWaypoint];
-        if (destino == null) return;
+        if (EstaDeambulando)
+        {
+            Deambular();
+            return;
+        }
 
+        Transform destino = rutaValida[indiceWaypoint];
         bool llego = MoverHacia(destino.position, patrolSpeed);
         if (!llego)
         {
@@ -119,8 +292,53 @@ public class EnemyAI : MonoBehaviour
         if (tiempoEsperando >= waitTimeAtWaypoint)
         {
             tiempoEsperando = 0f;
-            indiceWaypoint = (indiceWaypoint + 1) % waypoints.Length;
+            indiceWaypoint = (indiceWaypoint + 1) % rutaValida.Count;
         }
+    }
+
+    void Deambular()
+    {
+        if (!tienePuntoDeambular && !ElegirPuntoDeambular(out puntoDeambular))
+        {
+            return; // no se encontro ningun punto valido este frame; se reintenta el proximo
+        }
+        tienePuntoDeambular = true;
+
+        bool llego = MoverHacia(puntoDeambular, patrolSpeed);
+        tiempoDeambulando += Time.deltaTime;
+
+        if (llego || tiempoDeambulando >= TiempoMaximoDeambular)
+        {
+            tienePuntoDeambular = false;
+            tiempoDeambulando = 0f;
+        }
+    }
+
+    // Publico para las pruebas (CP-ENE-03): intenta varios puntos aleatorios dentro de
+    // radioDeambular y solo acepta uno si esta sobre el NavMesh y tiene camino completo.
+    public bool ElegirPuntoDeambular(out Vector3 punto)
+    {
+        for (int intento = 0; intento < IntentosElegirPuntoDeambular; intento++)
+        {
+            Vector2 circulo = Random.insideUnitCircle * radioDeambular;
+            Vector3 candidato = transform.position + new Vector3(circulo.x, 0f, circulo.y);
+
+            if (!NavMesh.SamplePosition(candidato, out NavMeshHit hit, radioDeambular, NavMesh.AllAreas))
+                continue;
+
+            NavMeshPath camino = CaminoTemporal();
+            bool caminoCompleto = NavMesh.CalculatePath(transform.position, hit.position, NavMesh.AllAreas, camino)
+                && camino.status == NavMeshPathStatus.PathComplete;
+
+            if (caminoCompleto)
+            {
+                punto = hit.position;
+                return true;
+            }
+        }
+
+        punto = transform.position;
+        return false;
     }
 
     // ---------------------------------------------------------------
@@ -128,6 +346,8 @@ public class EnemyAI : MonoBehaviour
     // ---------------------------------------------------------------
     void Perseguir(bool veAlJugador)
     {
+        if (agent != null) agent.speed = chaseSpeed;
+
         float distancia = Vector3.Distance(transform.position, jugador.position);
 
         if (veAlJugador) tiempoSinVerJugador = 0f;
@@ -136,7 +356,7 @@ public class EnemyAI : MonoBehaviour
         bool perdido = distancia > loseTargetDistance || tiempoSinVerJugador >= tiempoSinVerParaAbandonar;
         if (perdido)
         {
-            CambiarA(Estado.Patrulla);
+            CambiarA(Estado.Investigar);
             return;
         }
 
@@ -145,11 +365,19 @@ public class EnemyAI : MonoBehaviour
             DetenerMovimiento();
             MirarHacia(jugador.position);
             Atacar();
+            return;
         }
-        else
+
+        // El destino se actualiza como maximo cada 0.2s (no hace falta recalcular el camino cada
+        // frame), pero la rotacion hacia el jugador se sigue actualizando siempre para que no se
+        // vea trabada.
+        tiempoDesdeUltimoDestino += Time.deltaTime;
+        if (tiempoDesdeUltimoDestino >= IntervaloActualizarDestinoPersecucion)
         {
+            tiempoDesdeUltimoDestino = 0f;
             MoverHacia(jugador.position, chaseSpeed);
         }
+        MirarHacia(jugador.position);
     }
 
     void Atacar()
@@ -160,36 +388,80 @@ public class EnemyAI : MonoBehaviour
     }
 
     // ---------------------------------------------------------------
+    // Investigar (ultima posicion conocida, tras perder de vista o por oido)
+    // ---------------------------------------------------------------
+    void Investigar()
+    {
+        if (agent != null) agent.speed = patrolSpeed;
+
+        bool llego = MoverHacia(ultimaPosicionConocida, patrolSpeed);
+        if (!llego) return;
+
+        tiempoInvestigando += Time.deltaTime;
+        if (tiempoInvestigando >= tiempoInvestigacion)
+        {
+            CambiarA(Estado.Patrulla);
+        }
+    }
+
+    // RF11: si el jugador corre (mas rapido que umbralVelocidadRuido) dentro de radioOido, no lo
+    // ve pero hay un camino completo hasta el, el enemigo va a investigar el ruido.
+    void RevisarOido()
+    {
+        float distancia = Vector3.Distance(transform.position, jugador.position);
+        float velocidadJugador = VelocidadHorizontalJugador();
+
+        if (!DebeInvestigarPorRuido(distancia, velocidadJugador, radioOido, umbralVelocidadRuido, false))
+            return;
+
+        NavMeshPath camino = CaminoTemporal();
+        bool caminoCompleto = NavMesh.CalculatePath(transform.position, jugador.position, NavMesh.AllAreas, camino)
+            && camino.status == NavMeshPathStatus.PathComplete;
+        if (!caminoCompleto) return;
+
+        ultimaPosicionConocida = jugador.position;
+        CambiarA(Estado.Investigar);
+    }
+
+    float VelocidadHorizontalJugador()
+    {
+        if (controladorJugador == null) return 0f;
+        Vector3 v = controladorJugador.velocity;
+        v.y = 0f;
+        return v.magnitude;
+    }
+
+    // Helper estatico puro (sin estado), para poder probar la tabla de verdad sin escena (CP-ENE-05).
+    public static bool DebeInvestigarPorRuido(float distancia, float velocidadJugador, float radioOido, float umbralVelocidadRuido, bool loVe)
+    {
+        if (loVe) return false;
+        if (distancia > radioOido) return false;
+        return velocidadJugador > umbralVelocidadRuido;
+    }
+
+    // ---------------------------------------------------------------
     // Movimiento y vision
     // ---------------------------------------------------------------
 
-    // Mueve hacia el destino (mismo plano Y que el enemigo) a la velocidad dada, via Rigidbody:
-    // si en el camino hay un muro, el propio motor de fisica lo frena (no lo atraviesa).
-    // Devuelve true cuando ya llego, para saber cuando esperar en un waypoint.
+    // Mueve el NavMeshAgent hacia el destino a la velocidad dada. Devuelve true cuando ya llego
+    // (dentro de stoppingDistance y sin velocidad), para saber cuando esperar/reelegir destino.
     bool MoverHacia(Vector3 destino, float velocidad)
     {
-        Vector3 destinoPlano = new Vector3(destino.x, transform.position.y, destino.z);
-        Vector3 diferencia = destinoPlano - transform.position;
+        if (agent == null || !agent.isOnNavMesh) return false;
 
-        if (diferencia.magnitude < 0.15f)
-        {
-            DetenerMovimiento();
-            return true;
-        }
+        agent.speed = velocidad;
+        agent.isStopped = false;
+        agent.SetDestination(destino);
+        MirarHacia(destino);
 
-        AplicarVelocidad(diferencia.normalized * velocidad);
-        MirarHacia(destinoPlano);
-        return false;
-    }
-
-    void AplicarVelocidad(Vector3 velocidadDeseada)
-    {
-        rb.linearVelocity = velocidadDeseada;
+        return !agent.pathPending
+            && agent.remainingDistance <= agent.stoppingDistance
+            && (!agent.hasPath || agent.velocity.sqrMagnitude < 0.01f);
     }
 
     void DetenerMovimiento()
     {
-        rb.linearVelocity = Vector3.zero;
+        if (agent != null) agent.isStopped = true;
     }
 
     void MirarHacia(Vector3 objetivo)
@@ -212,20 +484,37 @@ public class EnemyAI : MonoBehaviour
         float angulo = Vector3.Angle(transform.forward, haciaJugador);
         if (angulo > fieldOfViewAngle * 0.5f) return false;
 
-        // RaycastAll (no Raycast simple) para poder ignorar el propio cuerpo del enemigo: con un
-        // solo Raycast, si el origen queda pegado a su propio collider, el rayo pega ahi mismo y
-        // el enemigo nunca "ve" nada (bug comun: el enemigo se tapa la vista a si mismo).
+        // RaycastNonAlloc (no RaycastAll) para no reservar memoria cada frame: mismo buffer fijo
+        // reutilizado, ordenado a mano por distancia para poder ignorar el propio collider del
+        // enemigo (si el origen queda pegado a su propio cuerpo, el primer impacto seria consigo
+        // mismo y nunca "veria" nada).
         Vector3 direccion = haciaJugador / distancia;
-        RaycastHit[] impactos = Physics.RaycastAll(origen, direccion, distancia, capasBloqueoVision, QueryTriggerInteraction.Ignore);
-        System.Array.Sort(impactos, (a, b) => a.distance.CompareTo(b.distance));
+        int cantidad = Physics.RaycastNonAlloc(origen, direccion, impactosVision, distancia, capasBloqueoVision, QueryTriggerInteraction.Ignore);
+        OrdenarPorDistancia(impactosVision, cantidad);
 
-        foreach (RaycastHit hit in impactos)
+        for (int i = 0; i < cantidad; i++)
         {
+            RaycastHit hit = impactosVision[i];
             if (EsPropio(hit.collider)) continue;         // su propio cuerpo: se ignora
             return hit.transform == jugador;              // lo primero relevante: jugador (hay vision) o muro (no hay)
         }
 
         return true; // no choco contra nada en el camino
+    }
+
+    static void OrdenarPorDistancia(RaycastHit[] impactos, int cantidad)
+    {
+        for (int i = 1; i < cantidad; i++)
+        {
+            RaycastHit actual = impactos[i];
+            int j = i - 1;
+            while (j >= 0 && impactos[j].distance > actual.distance)
+            {
+                impactos[j + 1] = impactos[j];
+                j--;
+            }
+            impactos[j + 1] = actual;
+        }
     }
 
     bool EsPropio(Collider col)
@@ -238,7 +527,8 @@ public class EnemyAI : MonoBehaviour
         return false;
     }
 
-    // Dibuja el radio de deteccion, el cono de vision y el rango de ataque en el editor
+    // Dibuja los radios de vision, de oido y de deambular, el rango de ataque y la ruta de
+    // patrulla (la ya validada en juego, o los waypoints crudos en edicion, para quien arme el mapa).
     void OnDrawGizmosSelected()
     {
         Gizmos.color = new Color(1f, 1f, 0f, 0.35f);
@@ -257,15 +547,24 @@ public class EnemyAI : MonoBehaviour
         Gizmos.color = new Color(0.3f, 0.3f, 1f, 0.5f);
         Gizmos.DrawWireSphere(transform.position, loseTargetDistance);
 
-        if (waypoints != null)
+        // RF11: radio de oido
+        Gizmos.color = new Color(1f, 0.4f, 1f, 0.5f);
+        Gizmos.DrawWireSphere(transform.position, radioOido);
+
+        // Radio de deambular (se usa cuando la ruta de patrulla no tiene 2+ waypoints validos)
+        Gizmos.color = new Color(0.4f, 1f, 0.4f, 0.4f);
+        Gizmos.DrawWireSphere(transform.position, radioDeambular);
+
+        IList<Transform> ruta = Application.isPlaying && rutaValida.Count > 0 ? (IList<Transform>)rutaValida : waypoints;
+        if (ruta != null && ruta.Count > 0)
         {
             Gizmos.color = Color.cyan;
-            for (int i = 0; i < waypoints.Length; i++)
+            for (int i = 0; i < ruta.Count; i++)
             {
-                if (waypoints[i] == null) continue;
-                Gizmos.DrawSphere(waypoints[i].position, 0.25f);
-                Transform siguiente = waypoints[(i + 1) % waypoints.Length];
-                if (siguiente != null) Gizmos.DrawLine(waypoints[i].position, siguiente.position);
+                if (ruta[i] == null) continue;
+                Gizmos.DrawSphere(ruta[i].position, 0.25f);
+                Transform siguiente = ruta[(i + 1) % ruta.Count];
+                if (siguiente != null) Gizmos.DrawLine(ruta[i].position, siguiente.position);
             }
         }
     }
