@@ -2,10 +2,12 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 // Interfaz del inventario (RF06, HU-05, #16): panel con los lugares del inventario, selección,
-// uso del ítem seleccionado y aviso breve al recoger algo. Toda la lógica vive en
-// InventoryPanelState; esta clase solo traduce teclas a acciones y dibuja.
+// uso del ítem seleccionado y aviso breve al recoger algo. La logica de que mostrar vive en
+// InventoryPanelState; esta clase traduce teclas a acciones, dibuja y, al abrir/cerrar el panel,
+// congela el juego igual que ShopManager.AbrirTienda/CerrarTienda (Time.timeScale, cursor y
+// controles de movimiento/mirada del jugador).
 // Mismo estilo que Menu, GameOverUI y PromptInteraccion: IMGUI (OnGUI) sobre una pantalla
-// virtual de 720 de alto, y se crea sola al cargar la escena. No pausa el juego ni toca el cursor.
+// virtual de 720 de alto, y se crea sola al cargar la escena.
 public class InventoryUI : MonoBehaviour
 {
     // Teclas del inventario, configurables con HU-02. Ninguna la usa otro script del equipo.
@@ -31,6 +33,12 @@ public class InventoryUI : MonoBehaviour
     InventoryPanelState state;
     Inventory inventory;
     float nextSearchTime;
+
+    // Encontrados bajo demanda al abrir/cerrar el panel (esta clase se autocrea sin referencias
+    // de Inspector, a diferencia de ShopManager). Se resuelven cada vez por si la escena se
+    // recargo y las instancias anteriores ya no existen.
+    PlayerController controlador;
+    MouseLook camaraJugador;
 
     // Textos cacheados: se rearman solo cuando cambia state.Version o la capacidad.
     GUIContent[] slotContents = new GUIContent[0];
@@ -74,6 +82,10 @@ public class InventoryUI : MonoBehaviour
 
     void OnDestroy()
     {
+        // Por si el objeto se destruye (ej. recarga de escena) con el panel todavia abierto: sin
+        // esto, Time.timeScale y los controles del jugador quedarian pisados para siempre (Time.timeScale
+        // no se resetea solo entre escenas, igual que ya maneja GameOverUI.Reintentar/Menu.Restart).
+        if (state != null && state.IsOpen) CerrarInventario();
         state?.Dispose();
     }
 
@@ -81,10 +93,24 @@ public class InventoryUI : MonoBehaviour
     {
         ResolveInventory();
 
+        bool estabaAbierto = state.IsOpen;
+
         state.SetBlocked(Menu.IsOpen || ShopManager.HayTiendaAbierta || GameOverUI.EstaMostrando);
-        if (state.IsBlocked || inventory == null) return;
+
+        if (state.IsBlocked || inventory == null)
+        {
+            if (estabaAbierto) CerrarInventario(); // el bloqueo forzo el cierre: hay que restaurar
+            return;
+        }
 
         if (Input.GetKeyDown(ToggleKey)) state.Toggle();
+
+        if (state.IsOpen != estabaAbierto)
+        {
+            if (state.IsOpen) AbrirInventario();
+            else CerrarInventario();
+        }
+
         if (!state.IsOpen) return;
 
         if (Input.GetKeyDown(UseKey)) state.UseSelected(Time.time);
@@ -110,6 +136,39 @@ public class InventoryUI : MonoBehaviour
         nextSearchTime = Time.unscaledTime + SearchInterval;
         inventory = FindAnyObjectByType<Inventory>();
         if (inventory != null) state.Bind(inventory);
+    }
+
+    // Misma logica que ShopManager.AbrirTienda/CerrarTienda: congela el juego, libera el cursor
+    // (para que la flecha del raton aparezca sobre el panel) y bloquea el movimiento/mirada
+    // mientras el inventario esta abierto.
+    void AbrirInventario()
+    {
+        Time.timeScale = 0f;
+
+        ResolvePlayerControls();
+        if (controlador != null) controlador.enabled = false;
+        if (camaraJugador != null) camaraJugador.enabled = false;
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    void CerrarInventario()
+    {
+        Time.timeScale = 1f;
+
+        ResolvePlayerControls();
+        if (controlador != null) controlador.enabled = true;
+        if (camaraJugador != null) camaraJugador.enabled = true;
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    void ResolvePlayerControls()
+    {
+        if (controlador == null) controlador = FindAnyObjectByType<PlayerController>();
+        if (camaraJugador == null) camaraJugador = FindAnyObjectByType<MouseLook>();
     }
 
     void OnGUI()
