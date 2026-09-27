@@ -84,17 +84,17 @@ public class Menu : MonoBehaviour
     // Los scripts del jugador lo consultan para ignorar la entrada mientras el menu esta abierto
     public static bool IsOpen { get; private set; }
 
-    enum EstadoMenu { Principal, Opciones, Controles }
+    // Opciones ahora es un selector de categoria (Audio/Graficos/Controles), cada una su propia
+    // pantalla; VolverAtras() sabe que las 3 categorias vuelven a Opciones y Opciones vuelve a Principal.
+    enum EstadoMenu { Principal, Opciones, Audio, Graficos, Controles }
 
     const string SensitivityKey = "Sensitivity";
-    const string VolumeKey = "Volume";
 
     bool open;
     bool started;
     EstadoMenu estado;
     KeyBindings.Action? waiting;
     float sensitivity;
-    float volume;
 
     readonly System.Array allKeys = System.Enum.GetValues(typeof(KeyCode));
     GUIStyle titleStyle, labelStyle, buttonStyle;
@@ -110,8 +110,6 @@ public class Menu : MonoBehaviour
     void Start()
     {
         sensitivity = PlayerPrefs.GetFloat(SensitivityKey, 1.0f);
-        volume = PlayerPrefs.GetFloat(VolumeKey, 1.0f);
-        AudioListener.volume = volume;
 
         if (openOnStart) Open();
         else started = true;
@@ -188,14 +186,27 @@ public class Menu : MonoBehaviour
         waiting = null;
     }
 
+    void AbrirAudio()
+    {
+        estado = EstadoMenu.Audio;
+        waiting = null;
+    }
+
+    void AbrirGraficos()
+    {
+        estado = EstadoMenu.Graficos;
+        waiting = null;
+    }
+
     void AbrirControles()
     {
         estado = EstadoMenu.Controles;
         waiting = null;
     }
 
-    // Punto unico de "atras": si esta reasignando una tecla, cancela; si esta en
-    // Opciones o Controles, vuelve directo al Principal; si ya esta en el Principal, cierra el menu.
+    // Punto unico de "atras": si esta reasignando una tecla, cancela; si esta en Audio, Graficos
+    // o Controles, vuelve a Opciones (su categoria); si esta en Opciones, vuelve al Principal;
+    // si ya esta en el Principal, cierra el menu.
     void VolverAtras()
     {
         if (waiting.HasValue)
@@ -204,13 +215,19 @@ public class Menu : MonoBehaviour
             return;
         }
 
-        if (estado == EstadoMenu.Opciones || estado == EstadoMenu.Controles)
+        switch (estado)
         {
-            estado = EstadoMenu.Principal;
-        }
-        else if (started)
-        {
-            Close();
+            case EstadoMenu.Audio:
+            case EstadoMenu.Graficos:
+            case EstadoMenu.Controles:
+                estado = EstadoMenu.Opciones;
+                break;
+            case EstadoMenu.Opciones:
+                estado = EstadoMenu.Principal;
+                break;
+            default:
+                if (started) Close();
+                break;
         }
     }
 
@@ -235,7 +252,10 @@ public class Menu : MonoBehaviour
 
         BuildStyles();
 
-        // Se dibuja en una pantalla virtual de 720 de alto para que escale con la resolucion
+        // Se dibuja en una pantalla virtual de 720 de alto para que escale con la resolucion.
+        // s/w se recalculan de Screen.height/width en cada OnGUI (no se cachean en un campo), asi
+        // que un cambio de resolucion o de pantalla completa hecho desde DrawGraficos() se refleja
+        // solo en el frame siguiente, sin ningun ajuste extra.
         float s = Screen.height / 720f;
         GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
         float w = Screen.width / s;
@@ -248,9 +268,14 @@ public class Menu : MonoBehaviour
         GUILayout.BeginArea(new Rect((w - 460f) / 2f, 90f, 460f, 540f));
         GUILayout.Label(gameTitle, titleStyle);
         GUILayout.Space(20f);
-        if (estado == EstadoMenu.Principal) DrawMain();
-        else if (estado == EstadoMenu.Opciones) DrawSettings();
-        else DrawControls();
+        switch (estado)
+        {
+            case EstadoMenu.Principal: DrawMain(); break;
+            case EstadoMenu.Opciones: DrawOpciones(); break;
+            case EstadoMenu.Audio: DrawAudio(); break;
+            case EstadoMenu.Graficos: DrawGraficos(); break;
+            default: DrawControls(); break;
+        }
         GUILayout.EndArea();
     }
 
@@ -262,15 +287,86 @@ public class Menu : MonoBehaviour
         if (GUILayout.Button("Salir", buttonStyle)) Quit();
     }
 
-    void DrawSettings()
+    // Selector de categoria: Audio/Graficos/Controles tienen cada una su propia pantalla.
+    void DrawOpciones()
     {
         GUILayout.Label("Opciones", labelStyle);
         GUILayout.Space(10f);
 
+        if (GUILayout.Button("Audio", buttonStyle)) AbrirAudio();
+        if (GUILayout.Button("Graficos", buttonStyle)) AbrirGraficos();
         if (GUILayout.Button("Controles", buttonStyle)) AbrirControles();
+
+        GUILayout.Space(20f);
+        if (GUILayout.Button("Volver", buttonStyle)) estado = EstadoMenu.Principal;
+    }
+
+    // 3 sliders sobre AudioPreferences (Master/Music/Sfx), que ya persiste y aplica al AudioMixer
+    // por su cuenta: esta pantalla solo lee/escribe sus propiedades, no toca AudioListener.
+    void DrawAudio()
+    {
+        GUILayout.Label("Audio", labelStyle);
         GUILayout.Space(10f);
 
-        GUILayout.Label("Sensibilidad: " + sensitivity.ToString("0.00"), labelStyle);
+        DrawVolumeSlider("General", AudioPreferences.Master, v => AudioPreferences.Master = v);
+        GUILayout.Space(10f);
+        DrawVolumeSlider("Musica", AudioPreferences.Music, v => AudioPreferences.Music = v);
+        GUILayout.Space(10f);
+        DrawVolumeSlider("Efectos", AudioPreferences.Sfx, v => AudioPreferences.Sfx = v);
+
+        GUILayout.Space(20f);
+        if (GUILayout.Button("Volver", buttonStyle)) estado = EstadoMenu.Opciones;
+    }
+
+    void DrawVolumeSlider(string etiqueta, float valorActual, System.Action<float> aplicar)
+    {
+        GUILayout.Label(etiqueta + ": " + valorActual.ToString("0.00"), labelStyle);
+        float nuevoValor = GUILayout.HorizontalSlider(valorActual, 0f, 1f);
+        if (!Mathf.Approximately(nuevoValor, valorActual)) aplicar(nuevoValor);
+    }
+
+    // Calidad y resolucion se ciclan con "<"/">" (IMGUI no trae un dropdown nativo); pantalla
+    // completa es un simple toggle. Todo persiste y se aplica solo, via GraphicsPreferences.
+    void DrawGraficos()
+    {
+        GUILayout.Label("Graficos", labelStyle);
+        GUILayout.Space(10f);
+
+        GUILayout.Label("Calidad", labelStyle);
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("<", buttonStyle, GUILayout.Width(60f)))
+            GraphicsPreferences.QualityLevel = GraphicsPreferences.QualityLevel - 1;
+        GUILayout.Label(GraphicsPreferences.QualityNames[GraphicsPreferences.QualityLevel], labelStyle, GUILayout.ExpandWidth(true));
+        if (GUILayout.Button(">", buttonStyle, GUILayout.Width(60f)))
+            GraphicsPreferences.QualityLevel = GraphicsPreferences.QualityLevel + 1;
+        GUILayout.EndHorizontal();
+
+        GUILayout.Space(10f);
+
+        GUILayout.Label("Resolucion", labelStyle);
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("<", buttonStyle, GUILayout.Width(60f)))
+            GraphicsPreferences.CambiarResolucion(-1);
+        GUILayout.Label(GraphicsPreferences.ResolutionLabel(GraphicsPreferences.ResolutionIndex), labelStyle, GUILayout.ExpandWidth(true));
+        if (GUILayout.Button(">", buttonStyle, GUILayout.Width(60f)))
+            GraphicsPreferences.CambiarResolucion(1);
+        GUILayout.EndHorizontal();
+
+        GUILayout.Space(10f);
+
+        string textoFullscreen = "Pantalla completa: " + (GraphicsPreferences.Fullscreen ? "Si" : "No");
+        if (GUILayout.Button(textoFullscreen, buttonStyle)) GraphicsPreferences.Fullscreen = !GraphicsPreferences.Fullscreen;
+
+        GUILayout.Space(20f);
+        if (GUILayout.Button("Volver", buttonStyle)) estado = EstadoMenu.Opciones;
+    }
+
+    void DrawControls()
+    {
+        GUILayout.Label("Controles", labelStyle);
+        GUILayout.Space(10f);
+
+        GUILayout.Label("Sensibilidad del mouse: " + sensitivity.ToString("0.00"), labelStyle);
         float newSensitivity = GUILayout.HorizontalSlider(sensitivity, 0.1f, 5f);
         if (!Mathf.Approximately(newSensitivity, sensitivity))
         {
@@ -279,25 +375,6 @@ public class Menu : MonoBehaviour
             PlayerPrefs.Save();
         }
 
-        GUILayout.Space(10f);
-
-        GUILayout.Label("Volumen: " + volume.ToString("0.00"), labelStyle);
-        float newVolume = GUILayout.HorizontalSlider(volume, 0f, 1f);
-        if (!Mathf.Approximately(newVolume, volume))
-        {
-            volume = newVolume;
-            AudioListener.volume = volume;
-            PlayerPrefs.SetFloat(VolumeKey, volume);
-            PlayerPrefs.Save();
-        }
-
-        GUILayout.Space(20f);
-        if (GUILayout.Button("Volver", buttonStyle)) estado = EstadoMenu.Principal;
-    }
-
-    void DrawControls()
-    {
-        GUILayout.Label("Controles", labelStyle);
         GUILayout.Space(10f);
 
         foreach (KeyBindings.Action a in System.Enum.GetValues(typeof(KeyBindings.Action)))
@@ -313,14 +390,14 @@ public class Menu : MonoBehaviour
         GUILayout.Label("Esc cancela el cambio de tecla", labelStyle);
         GUILayout.Space(10f);
 
-        if (GUILayout.Button("Restablecer", buttonStyle))
+        if (GUILayout.Button("Restablecer teclas", buttonStyle))
         {
             KeyBindings.ResetDefaults();
             waiting = null;
         }
         if (GUILayout.Button("Volver", buttonStyle))
         {
-            estado = EstadoMenu.Principal;
+            estado = EstadoMenu.Opciones;
             waiting = null;
         }
     }
