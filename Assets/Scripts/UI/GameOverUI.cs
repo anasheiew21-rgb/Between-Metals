@@ -15,8 +15,18 @@ public class GameOverUI : MonoBehaviour
     bool mostrando;
     GUIStyle tituloStyle, botonStyle;
 
+    // Se recrea en cada carga de escena: Reiniciar recarga la escena y RuntimeInitializeOnLoadMethod corre una sola vez (#55).
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoCrear()
+    {
+        EnsureExists();
+        SceneManager.sceneLoaded -= OnSceneLoadedRecrear;
+        SceneManager.sceneLoaded += OnSceneLoadedRecrear;
+    }
+
+    static void OnSceneLoadedRecrear(Scene s, LoadSceneMode m) => EnsureExists();
+
+    public static void EnsureExists()
     {
         if (FindAnyObjectByType<GameOverUI>() != null) return;
         if (FindAnyObjectByType<PlayerStats>() == null) return; // sin jugador (ej. un futuro menu de inicio), no hace falta

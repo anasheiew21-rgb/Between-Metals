@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 // Barras de vida y estamina en pantalla, conectadas a PlayerStats por eventos (no sondea en
@@ -27,8 +28,18 @@ public class PlayerUI : MonoBehaviour
 
     // Se crea sola si la escena no tiene una, para no depender de agregarla a mano. No se crea
     // en escenas sin jugador (por ejemplo un futuro menu de inicio sin PlayerStats).
+    // Se recrea en cada carga de escena: Reiniciar recarga la escena y RuntimeInitializeOnLoadMethod corre una sola vez (#55).
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoCrear()
+    {
+        EnsureExists();
+        SceneManager.sceneLoaded -= OnSceneLoadedRecrear;
+        SceneManager.sceneLoaded += OnSceneLoadedRecrear;
+    }
+
+    static void OnSceneLoadedRecrear(Scene s, LoadSceneMode m) => EnsureExists();
+
+    public static void EnsureExists()
     {
         if (FindAnyObjectByType<PlayerUI>() != null) return;
         if (FindAnyObjectByType<PlayerStats>() == null) return;
