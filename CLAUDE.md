@@ -44,7 +44,6 @@ All scripts use the **legacy** `UnityEngine.Input` API (`Input.GetAxis`, `Input.
 
 ## Gotchas
 
-- `ProjectSettings/EditorBuildSettings.asset` still lists `Assets/Scenes/SampleScene.unity`, which no longer exists — `Prototype.unity` is not in the build scenes list.
 - Unity `.meta` files are tracked and must be committed together with their asset (and moved together when renaming/relocating assets), otherwise GUID references in scenes/prefabs break.
 - Scene/prefab/ProjectSettings files are YAML that Git flags for LF→CRLF conversion on this Windows checkout; expect noisy line-ending warnings and avoid hand-editing these files when the Editor can do it.
 - `com.unity.ai.assistant` is a pre-release package and its `ProjectSettings/Packages/com.unity.ai.assistant/` folder is untracked; that plus the `SENTIS_ANALYTICS_ENABLED` scripting define in `ProjectSettings.asset` are Editor-generated side effects, not intentional project changes.
