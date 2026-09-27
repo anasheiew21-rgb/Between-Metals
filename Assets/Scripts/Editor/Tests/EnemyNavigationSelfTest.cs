@@ -18,6 +18,10 @@ public static class EnemyNavigationSelfTest
     const string Tag = "[EnemyNavigationSelfTest]";
     const string EscenaPrototipo = "Assets/Scenes/Prototype.unity";
     const float DistanciaMaximaAlNavMesh = 1f;
+    // El pivote del jugador (objeto con PlayerStats) esta a 1.79 m de altura en el archivo de
+    // escena (posicion de diseno, antes de que la gravedad lo asiente en Play), asi que el
+    // margen de 1 m de los demas casos no le alcanza. Solo para CP-NAV-03 se usa un margen mayor.
+    const float DistanciaMaximaAlNavMeshJugador = 2.5f;
     const long TiempoMaximoConstruccionMs = 2000;
 
     static int passed;
@@ -74,12 +78,12 @@ public static class EnemyNavigationSelfTest
             return null;
         });
 
-        Run("CP-NAV-03", "La posicion del jugador esta a 1m o menos del NavMesh", () =>
+        Run("CP-NAV-03", "La posicion del jugador esta a 2.5m o menos del NavMesh", () =>
         {
             if (jugador == null) return "no se encontro ningun PlayerStats en la escena";
             Vector3 pos = jugador.transform.position;
-            if (!NavMesh.SamplePosition(pos, out NavMeshHit hit, DistanciaMaximaAlNavMesh, NavMesh.AllAreas))
-                return $"sin punto de NavMesh a {DistanciaMaximaAlNavMesh}m de {pos}";
+            if (!NavMesh.SamplePosition(pos, out NavMeshHit hit, DistanciaMaximaAlNavMeshJugador, NavMesh.AllAreas))
+                return $"sin punto de NavMesh a {DistanciaMaximaAlNavMeshJugador}m de {pos}";
             return null;
         });
 
