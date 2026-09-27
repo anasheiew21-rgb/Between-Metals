@@ -6,9 +6,10 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Debug = UnityEngine.Debug;
 
-// Autotest de editor de EnvironmentManager (issue #60). Casos CP-ENV-01..05.
+// Autotest de editor de EnvironmentManager (issue #60). Casos CP-ENV-01..06.
 // Usa una escena temporal en memoria (nunca se guarda) para CP-ENV-01..04, y abre Prototype.unity
-// sin guardarla para CP-ENV-05 (verifica que el piso duplicado ya no este).
+// sin guardarla para CP-ENV-05 (verifica que el piso duplicado ya no este) y CP-ENV-06 (verifica
+// los valores de visibilidad aprobados por el usuario, PR #61).
 // Batch: Unity.exe -batchmode -nographics -projectPath <ruta> -executeMethod EnvironmentSelfTest.RunAllAndExit -logFile <log>
 public static class EnvironmentSelfTest
 {
@@ -159,6 +160,61 @@ public static class EnvironmentSelfTest
             return null;
         });
 
+        // ---- CP-ENV-06: Prototype.unity real, sin guardar, valores de visibilidad aprobados ----
+        Run("CP-ENV-06", "Prototype.unity, sin guardar, tiene los valores de visibilidad aprobados en EnvironmentManager y en la linterna (issue #60, PR #61)", () =>
+        {
+            const float tolerancia = 0.001f;
+
+            Scene escena = EditorSceneManager.OpenScene(EscenaPrototipo, OpenSceneMode.Single);
+
+            EnvironmentManager environmentManager = null;
+            int cantidadEnvironment = 0;
+            FlashlightController flashlightController = null;
+            int cantidadFlashlight = 0;
+
+            foreach (GameObject raiz in escena.GetRootGameObjects())
+            {
+                foreach (EnvironmentManager em in raiz.GetComponentsInChildren<EnvironmentManager>(true))
+                {
+                    cantidadEnvironment++;
+                    if (environmentManager == null) environmentManager = em;
+                }
+                foreach (FlashlightController fc in raiz.GetComponentsInChildren<FlashlightController>(true))
+                {
+                    cantidadFlashlight++;
+                    if (flashlightController == null) flashlightController = fc;
+                }
+            }
+
+            if (cantidadEnvironment != 1) return $"hay {cantidadEnvironment} EnvironmentManager (se esperaba 1)";
+            if (cantidadFlashlight != 1) return $"hay {cantidadFlashlight} FlashlightController (se esperaba 1)";
+
+            Color colorEsperado = new Color(30f / 255f, 30f / 255f, 40f / 255f, 1f);
+            Color colorActual = (Color)GetPrivateField(environmentManager, "colorLuzAmbiental");
+            if (!ColoresCerca(colorActual, colorEsperado, tolerancia))
+                return $"colorLuzAmbiental = {colorActual} (se esperaba {colorEsperado})";
+
+            float densidadActual = (float)GetPrivateField(environmentManager, "densidadNiebla");
+            if (Mathf.Abs(densidadActual - 0.03f) > tolerancia)
+                return $"densidadNiebla = {densidadActual} (se esperaba 0.03)";
+
+            float solActual = (float)GetPrivateField(environmentManager, "intensidadSol");
+            if (Mathf.Abs(solActual - 0.1f) > tolerancia)
+                return $"intensidadSol = {solActual} (se esperaba 0.1)";
+
+            Light linterna = flashlightController.GetComponent<Light>();
+            if (linterna == null) return "el FlashlightController no tiene un componente Light";
+
+            if (Mathf.Abs(linterna.intensity - 20f) > tolerancia)
+                return $"Flashlight Light.intensity = {linterna.intensity} (se esperaba 20)";
+            if (Mathf.Abs(linterna.range - 20f) > tolerancia)
+                return $"Flashlight Light.range = {linterna.range} (se esperaba 20)";
+            if (Mathf.Abs(linterna.spotAngle - 55f) > tolerancia)
+                return $"Flashlight Light.spotAngle = {linterna.spotAngle} (se esperaba 55)";
+
+            return null;
+        });
+
         Debug.Log($"{Tag} RESULT: {passed} passed, {failed} failed");
         return failed == 0;
     }
@@ -195,5 +251,13 @@ public static class EnvironmentSelfTest
     {
         FieldInfo campo = obj.GetType().GetField(nombre, BindingFlags.Instance | BindingFlags.NonPublic);
         return campo?.GetValue(obj);
+    }
+
+    static bool ColoresCerca(Color a, Color b, float tolerancia)
+    {
+        return Mathf.Abs(a.r - b.r) <= tolerancia
+            && Mathf.Abs(a.g - b.g) <= tolerancia
+            && Mathf.Abs(a.b - b.b) <= tolerancia
+            && Mathf.Abs(a.a - b.a) <= tolerancia;
     }
 }
