@@ -21,6 +21,10 @@ public class InventoryUI : MonoBehaviour
 
     const float SearchInterval = 1f;
 
+    // Menu lo consulta para no pelearse por el cursor mientras el inventario esta abierto
+    // (mismo patron que ShopManager.HayTiendaAbierta / GameOverUI.EstaMostrando).
+    public static bool IsOpen { get; private set; }
+
     // Pantalla virtual (misma que Menu/GameOverUI/PromptInteraccion)
     const float VirtualHeight = 720f;
     const int Columns = 5;
@@ -143,6 +147,7 @@ public class InventoryUI : MonoBehaviour
     // mientras el inventario esta abierto.
     void AbrirInventario()
     {
+        IsOpen = true;
         Time.timeScale = 0f;
 
         ResolvePlayerControls();
@@ -155,6 +160,7 @@ public class InventoryUI : MonoBehaviour
 
     void CerrarInventario()
     {
+        IsOpen = false;
         Time.timeScale = 1f;
 
         ResolvePlayerControls();
@@ -229,7 +235,7 @@ public class InventoryUI : MonoBehaviour
                 SlotWidth, slotHeight);
 
             GUI.backgroundColor = i == state.SelectedIndex ? new Color(1f, 0.8f, 0.2f) : previousBackground;
-            GUI.Box(slot, slotContents[i], slotStyle);
+            if (GUI.Button(slot, slotContents[i], slotStyle)) state.SelectSlot(i); // clic izquierdo: selecciona, igual que las teclas 1-0
         }
         GUI.backgroundColor = previousBackground;
         y += rows * (slotHeight + Gap);
