@@ -18,24 +18,36 @@ public static class GraphicsPreferences
     // Nombres definidos en ProjectSettings/QualitySettings.asset (hoy: "Mobile", "PC").
     public static string[] QualityNames => QualitySettings.names;
 
-    public static int QualityLevel
+    public static int QualityLevel => QualitySettings.GetQualityLevel();
+
+    // delta tipicamente +1/-1, para los botones "<"/">". Da la vuelta en los extremos: con solo
+    // 2 niveles definidos ("Mobile"/"PC"), clampear haria que uno de los dos botones pareciera
+    // trabado al llegar a una punta.
+    public static void CambiarCalidad(int delta)
     {
-        get { return QualitySettings.GetQualityLevel(); }
-        set
-        {
-            int nivel = Mathf.Clamp(value, 0, QualityNames.Length - 1);
-            QualitySettings.SetQualityLevel(nivel, true);
-            PlayerPrefs.SetInt(QualityKey, nivel);
-            PlayerPrefs.Save();
-        }
+        string[] nombres = QualityNames;
+        if (nombres.Length == 0) return;
+
+        int nuevo = ((QualitySettings.GetQualityLevel() + delta) % nombres.Length + nombres.Length) % nombres.Length;
+        QualitySettings.SetQualityLevel(nuevo, true);
+
+        PlayerPrefs.SetInt(QualityKey, nuevo);
+        PlayerPrefs.Save();
     }
 
+    // NOTA IMPORTANTE: Screen.fullScreen y Screen.SetResolution no tienen efecto visible sobre el
+    // Game View del Editor (Unity solo los aplica de verdad en un build standalone) — probarlos
+    // requiere Build and Run, no alcanza con Play dentro del Editor.
     public static bool Fullscreen
     {
         get { return Screen.fullScreen; }
         set
         {
             Screen.fullScreen = value;
+            // Repetir el cambio con SetResolution es mas confiable que el setter de fullScreen
+            // solo: en algunas plataformas Screen.fullScreen por si solo no fuerza el cambio de modo.
+            Screen.SetResolution(Screen.width, Screen.height, value);
+
             PlayerPrefs.SetInt(FullscreenKey, value ? 1 : 0);
             PlayerPrefs.Save();
         }
@@ -95,9 +107,9 @@ public static class GraphicsPreferences
     static void AplicarResolucionActual()
     {
         Resolution r = Resoluciones[resolutionIndex];
-        // Se preserva el FullScreenMode actual (no se fuerza a Fullscreen/Windowed desde aca):
+        // Se preserva el estado de pantalla completa actual (no se fuerza a si/no desde aca):
         // esa decision es del toggle "Pantalla completa" (propiedad Fullscreen de arriba).
-        Screen.SetResolution(r.width, r.height, Screen.fullScreenMode);
+        Screen.SetResolution(r.width, r.height, Screen.fullScreen);
 
         PlayerPrefs.SetInt(ResolutionWidthKey, r.width);
         PlayerPrefs.SetInt(ResolutionHeightKey, r.height);

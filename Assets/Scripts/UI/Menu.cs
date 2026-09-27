@@ -318,9 +318,11 @@ public class Menu : MonoBehaviour
         if (GUILayout.Button("Volver", buttonStyle)) estado = EstadoMenu.Opciones;
     }
 
+    // El slider sigue trabajando en 0..1 (mismo rango que espera AudioPreferences/AudioMixer);
+    // solo el texto se muestra como porcentaje 0-100.
     void DrawVolumeSlider(string etiqueta, float valorActual, System.Action<float> aplicar)
     {
-        GUILayout.Label(etiqueta + ": " + valorActual.ToString("0.00"), labelStyle);
+        GUILayout.Label(etiqueta + ": " + Mathf.RoundToInt(valorActual * 100f) + "%", labelStyle);
         float nuevoValor = GUILayout.HorizontalSlider(valorActual, 0f, 1f);
         if (!Mathf.Approximately(nuevoValor, valorActual)) aplicar(nuevoValor);
     }
@@ -334,11 +336,9 @@ public class Menu : MonoBehaviour
 
         GUILayout.Label("Calidad", labelStyle);
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("<", buttonStyle, GUILayout.Width(60f)))
-            GraphicsPreferences.QualityLevel = GraphicsPreferences.QualityLevel - 1;
+        if (GUILayout.Button("<", buttonStyle, GUILayout.Width(60f))) GraphicsPreferences.CambiarCalidad(-1);
         GUILayout.Label(GraphicsPreferences.QualityNames[GraphicsPreferences.QualityLevel], labelStyle, GUILayout.ExpandWidth(true));
-        if (GUILayout.Button(">", buttonStyle, GUILayout.Width(60f)))
-            GraphicsPreferences.QualityLevel = GraphicsPreferences.QualityLevel + 1;
+        if (GUILayout.Button(">", buttonStyle, GUILayout.Width(60f))) GraphicsPreferences.CambiarCalidad(1);
         GUILayout.EndHorizontal();
 
         GUILayout.Space(10f);
