@@ -1,8 +1,9 @@
 using UnityEngine;
 
 // Panel de la tienda del comerciante: lista de items con Comprar/Vender, conectada al oro de
-// PlayerStats. La cantidad que el jugador posee de cada item se lleva en el propio
-// ItemComercio.cantidadJugador (todavia no hay un inventario separado del jugador).
+// PlayerStats y al Inventory real del jugador (RF06). Comprar agrega el ItemData de ItemComercio
+// al inventario (falla sin cobrar si esta lleno); vender lo quita de ahi. El stock que le queda a
+// la tienda (ItemComercio.cantidad) es lo unico que sigue llevando esta clase.
 public class ShopManager : MonoBehaviour
 {
     [Header("Items en venta")]
@@ -13,6 +14,8 @@ public class ShopManager : MonoBehaviour
     [SerializeField] private MouseLook camaraJugador;
     [Tooltip("Si se deja vacio, busca un PlayerStats en el jugador al arrancar")]
     [SerializeField] private PlayerStats statsJugador;
+    [Tooltip("Si se deja vacio, busca un Inventory en la escena al arrancar")]
+    [SerializeField] private Inventory inventarioJugador;
 
     // Los demas scripts (Menu, PromptInteraccion) lo consultan para no superponerse con la tienda
     public static bool HayTiendaAbierta { get; private set; }
@@ -23,6 +26,7 @@ public class ShopManager : MonoBehaviour
     void Awake()
     {
         if (statsJugador == null) statsJugador = FindAnyObjectByType<PlayerStats>();
+        if (inventarioJugador == null) inventarioJugador = FindAnyObjectByType<Inventory>();
     }
 
     void Update()
@@ -123,17 +127,22 @@ public class ShopManager : MonoBehaviour
 
         foreach (ItemComercio item in items)
         {
+            if (item.item == null) continue; // entrada sin ItemData asignado: no hay nada que comerciar
+
             GUILayout.BeginHorizontal();
 
-            GUILayout.Label(item.nombre, filaStyle, GUILayout.Width(180f));
+            Texture icono = item.item.icon != null ? item.item.icon.texture : null;
+            GUILayout.Label(new GUIContent(item.item.itemName, icono), filaStyle, GUILayout.Width(180f));
             GUILayout.Label(item.precio + " oro", precioStyle, GUILayout.Width(70f));
             GUILayout.Label("x" + item.cantidad, precioStyle, GUILayout.Width(40f));
 
-            bool puedeComprar = item.cantidad > 0 && statsJugador != null && statsJugador.PuedePagar(item.precio);
+            bool puedeComprar = item.cantidad > 0
+                && statsJugador != null && statsJugador.PuedePagar(item.precio)
+                && inventarioJugador != null && !inventarioJugador.IsFull;
             GUI.enabled = puedeComprar;
             if (GUILayout.Button("Comprar", botonStyle)) Comprar(item);
 
-            GUI.enabled = item.cantidadJugador > 0;
+            GUI.enabled = inventarioJugador != null && inventarioJugador.HasItem(item.item);
             if (GUILayout.Button("Vender", botonStyle)) Vender(item);
             GUI.enabled = true;
 
@@ -144,24 +153,25 @@ public class ShopManager : MonoBehaviour
 
     void Comprar(ItemComercio item)
     {
-        if (item.cantidad <= 0 || statsJugador == null) return;
+        if (item.item == null || item.cantidad <= 0) return;
+        if (statsJugador == null || inventarioJugador == null || inventarioJugador.IsFull) return;
         if (!statsJugador.GastarOro(item.precio)) return;
 
+        inventarioJugador.AddItem(item.item);
         item.cantidad--;
-        item.cantidadJugador++;
-        Debug.Log("Comprado: " + item.nombre + " por " + item.precio + " oro. Quedan " + item.cantidad + " en la tienda.");
+        Debug.Log("Comprado: " + item.item.itemName + " por " + item.precio + " oro. Quedan " + item.cantidad + " en la tienda.");
 
         ActualizarUI();
     }
 
     void Vender(ItemComercio item)
     {
-        if (item.cantidadJugador <= 0 || statsJugador == null) return;
+        if (item.item == null || inventarioJugador == null) return;
+        if (!inventarioJugador.RemoveItem(item.item)) return;
 
-        item.cantidadJugador--;
         item.cantidad++;
         statsJugador.AgregarOro(item.precio);
-        Debug.Log("Vendido: " + item.nombre + ". La tienda ahora tiene " + item.cantidad + ".");
+        Debug.Log("Vendido: " + item.item.itemName + ". La tienda ahora tiene " + item.cantidad + ".");
 
         ActualizarUI();
     }
@@ -181,13 +191,15 @@ public class ShopManager : MonoBehaviour
         filaStyle = new GUIStyle(GUI.skin.label)
         {
             fontSize = 18,
-            alignment = TextAnchor.MiddleLeft
+            alignment = TextAnchor.MiddleLeft,
+            imagePosition = ImagePosition.ImageLeft
         };
         filaStyle.normal.textColor = Color.white;
 
         precioStyle = new GUIStyle(filaStyle)
         {
-            alignment = TextAnchor.MiddleCenter
+            alignment = TextAnchor.MiddleCenter,
+            imagePosition = ImagePosition.TextOnly
         };
         precioStyle.normal.textColor = new Color(1f, 0.85f, 0.4f);
 
