@@ -489,6 +489,7 @@ GameObject:
   - component: {fileID: 645002254}
   - component: {fileID: 645002255}
   - component: {fileID: 645002256}
+  - component: {fileID: 645002257}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -551,6 +552,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerInteraction
   interactionDistance: 10
   playerCamera: {fileID: 330585545}
+--- !u!114 &645002257
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 645002252}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77484a9aa027e984ca9286671cc38e1e, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::Inventory
+  capacity: 10
 --- !u!1 &796080427
 GameObject:
   m_ObjectHideFlags: 0
@@ -12885,6 +12899,35 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &500000001
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: item
+      value:
+      objectReference: {fileID: 11400000, guid: f275a207587cc503360411d88395d3d1, type: 2}
+    - target: {fileID: 8884838663899534153, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 8884838663899534153, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 2.69
+      objectReference: {fileID: 0}
+    - target: {fileID: 8884838663899534153, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 12.2
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -12901,3 +12944,4 @@ SceneRoots:
   - {fileID: 995000006}
   - {fileID: 995000008}
   - {fileID: 2108476050}
+  - {fileID: 500000001}
