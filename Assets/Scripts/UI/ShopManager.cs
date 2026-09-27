@@ -49,6 +49,10 @@ public class ShopManager : MonoBehaviour
     {
         HayTiendaAbierta = true;
 
+        // Congela el juego (BUG-03): OnGUI sigue corriendo con Time.timeScale = 0, asi que los
+        // clics del panel funcionan igual.
+        Time.timeScale = 0f;
+
         if (controlador != null) controlador.enabled = false;
         if (camaraJugador != null) camaraJugador.enabled = false;
 
@@ -71,6 +75,8 @@ public class ShopManager : MonoBehaviour
     public void CerrarTienda()
     {
         HayTiendaAbierta = false;
+
+        Time.timeScale = 1f;
 
         if (controlador != null) controlador.enabled = true;
         if (camaraJugador != null) camaraJugador.enabled = true;
