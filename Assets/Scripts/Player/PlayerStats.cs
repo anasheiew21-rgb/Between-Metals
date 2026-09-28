@@ -17,6 +17,8 @@ public class PlayerStats : MonoBehaviour
     [SerializeField] private float staminaRegenPerSecond = 15f;
     [Tooltip("Cuanto hay que esperar sin correr antes de que la estamina empiece a regenerarse")]
     [SerializeField] private float staminaRechargeDelay = 1.5f;
+    [Tooltip("Estamina que consume cada golpe de ataque cuerpo a cuerpo (HU-14)")]
+    [SerializeField] private float costoAtaqueEstamina = 15f;
 
     [Header("Economia")]
     [SerializeField] private int oro = 0;
@@ -33,6 +35,8 @@ public class PlayerStats : MonoBehaviour
     // regeneracion vive aca adentro, en un solo lugar.
     [HideInInspector] public bool estaCorriendo;
     public bool PuedeCorrer => currentStamina > 0f;
+    // PlayerCombat lo consulta antes de dejar conectar un golpe (mismo criterio que PuedeCorrer)
+    public bool PuedeAtacar => currentStamina >= costoAtaqueEstamina;
 
     public int Oro => oro;
 
@@ -101,6 +105,12 @@ public class PlayerStats : MonoBehaviour
 
         oro += cantidad;
         AlCambiarOro?.Invoke(oro);
+    }
+
+    // PlayerCombat llama esto al intentar un ataque, ya validado PuedeAtacar antes
+    public void ConsumirEstaminaAtaque()
+    {
+        CambiarEstamina(-costoAtaqueEstamina);
     }
 
     void Die()
