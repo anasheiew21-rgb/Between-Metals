@@ -75,6 +75,7 @@ public class EnemyAI : MonoBehaviour
     CharacterController controladorJugador;
     NavMeshAgent agent;
     Rigidbody rb;
+    EnemyHealth salud;
     Collider[] propiosColliders; // para que el rayo de vision no se choque contra si mismo
     readonly List<Transform> rutaValida = new List<Transform>();
     readonly RaycastHit[] impactosVision = new RaycastHit[MaxImpactosVision];
@@ -106,6 +107,24 @@ public class EnemyAI : MonoBehaviour
         propiosColliders = GetComponentsInChildren<Collider>();
 
         InicializarNavegacion();
+
+        // HU-14: si el enemigo tiene EnemyHealth, la IA se apaga sola al morir. Sin ese
+        // componente (prefabs viejos todavia sin combate) el enemigo sigue como antes.
+        salud = GetComponent<EnemyHealth>();
+        if (salud != null) salud.AlMorir += ManejarMuerte;
+    }
+
+    void OnDestroy()
+    {
+        if (salud != null) salud.AlMorir -= ManejarMuerte;
+    }
+
+    // Detiene el NavMeshAgent y apaga este componente (Update deja de correr). EnemyHealth no
+    // sabe nada de esto: mismo desacople que PlayerStats.AlMorir del lado del jugador.
+    void ManejarMuerte()
+    {
+        if (agent != null && agent.isOnNavMesh) agent.isStopped = true;
+        enabled = false;
     }
 
     void Update()
