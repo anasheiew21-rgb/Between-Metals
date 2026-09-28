@@ -125,6 +125,7 @@ public class Menu : MonoBehaviour
     {
         if (ShopManager.HayTiendaAbierta) return; // la tienda maneja su propio Esc para cerrarse
         if (GameOverUI.EstaMostrando) return;     // no pisar el cursor libre de la pantalla de Game Over
+        if (VictoryUI.EstaMostrando) return;      // idem con la pantalla de Victoria
         if (InventoryUI.IsOpen) return;           // el inventario maneja su propio cursor mientras esta abierto
 
         if (waiting.HasValue)
