@@ -1,0 +1,409 @@
+[33mcommit 0b229cbd348769769caa0634a45dd756af26a4fb[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelop[m[33m, [m[1;31morigin/develop[m[33m)[m
+Merge: ca7def3 191a5e7
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 22:56:13 2026 -0300
+
+    Merge branch 'feature/shop-inventory-integration' into develop
+    
+    Integra ShopManager con el Inventory real del jugador.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit ca7def3623973c595efccb3f542c9f32829a5da7[m
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 22:36:42 2026 -0300
+
+    Arreglo de bug menor de las texturas, todas las paredes estaban color magenta y el piso del comerciante ya no es transparente
+
+[33mcommit 9064dac6ffe2dac4666ea63914f27d75a08733dc[m
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 21:23:45 2026 -0300
+
+    fix(comerciante): texturas de muros y piso transparente en la habitacion
+    
+    Los 5 muros de Habitacion_Comerciante (Fondo, LadoA, LadoB, Entrada_A,
+    Entrada_B) apuntaban a un material huerfano (guid ya no existe en el
+    proyecto, se veian con el gris/rosa por defecto de Unity): se reasignan
+    a ParedMetal.mat.
+    
+    El piso de esa sala (Habitacion_Suelo) usa el mesh Plane de Unity, que
+    solo renderiza su cara superior; por eso se veia "transparente" al
+    pasar por debajo. Se crea PisoHabitacionComerciante.mat (mismo material
+    huerfano de base, pero con _Cull en Off) y se asigna solo a ese piso,
+    sin tocar el material compartido que usan el resto de paredes/pisos del
+    mapa.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 80946e0a18c4a81d7a97bb42a8dd27542868021f[m
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 21:12:59 2026 -0300
+
+    Ajustar zona de spawn: iluminacion y texturas de piso/muros
+    
+    - Zona de spawn: ajustes en la escena tras las ultimas pruebas.
+    - Texturas: se reemplazan materiales de pared/piso (ParedMetal, PastoPrueba)
+      por versiones limpias.
+    - Luz del spawn: ajuste de la iluminacion calida central.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 211a34f2205071ac7bf5d0dbf82e4b295f6677ef[m
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 20:55:25 2026 -0300
+
+    Agregar zona de spawn a la escena y reemplazar texturas de muros con marca de agua
+    
+    Se instancia la zona segura (SpawnZoneBuilder) en Prototype.unity y se
+    reemplazan los materiales de pared que traian marca de agua por texturas
+    limpias (Pared metalica, ParedMetal1).
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 191a5e7e1d45978d6e3925ec384c5ea5dc6bfebe[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 18:03:52 2026 -0300
+
+    feat(tienda): integrar ShopManager con el Inventory real del jugador
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit aa71810bfa8229cbb3721aa7047519b7f4f4681c[m
+Merge: 495f315 183a465
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 17:55:35 2026 -0300
+
+    Merge branch 'feature/hu02-configuracion' into develop
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 183a465cf17043add2ac30911c4b2325b03ecc7d[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 17:53:14 2026 -0300
+
+    fix(ui): corregir calidad de graficos y mostrar audio como porcentaje
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 495f3157ccfb3fc30fb737eb4804912585f835be[m
+Merge: 16f4f19 d2f5071
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 17:45:53 2026 -0300
+
+    Merge pull request #63 from anasheiew21-rgb/feature/spawn-zone-builder
+    
+    Add SpawnZoneBuilder para la zona segura de inicio
+
+[33mcommit 05bb4a402fbb6c20b55b4839be6203680a446457[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 17:35:51 2026 -0300
+
+    feat(ui): implementar menu de configuracion completo (HU-02)
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 16f4f1990abfc705f692a66f7430de9adfe46940[m
+Merge: d423147 9f41e8b
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 17:23:10 2026 -0300
+
+    Merge branch 'fix/configuracion-escena' into develop
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 9f41e8bb1fa8e06a7e718f1d922cde3966537b80[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 17:22:57 2026 -0300
+
+    docs: actualizar CLAUDE.md removiendo issue obsoleto de build settings
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit cbf25013658f2ac0dab686805ba33f77facbd977[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 17:21:13 2026 -0300
+
+    fix(config): reparar waypoint nulo de enemigo y agregar escena principal a build settings
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit d2f5071a24a6864df91717cd0263d8b2b69aae16[m[33m ([m[1;31morigin/feature/spawn-zone-builder[m[33m, [m[1;32mfeature/spawn-zone-builder[m[33m)[m
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 17:20:36 2026 -0300
+
+    Add SpawnZoneBuilder para la zona segura de inicio
+    
+    Genera por codigo el claro estilo "Glade" (piso de cesped, muros
+    perimetrales con entrada hacia el laberinto y luz calida central)
+    para dar contraste de refugio frente a la oscuridad permanente del
+    EnvironmentManager. Incluye un ContextMenu para construir y limpiar
+    la zona desde el Editor sin dar Play.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit d423147074fb2c9aea4cb779bddffd36d2611297[m
+Merge: 09c1fb7 506f567
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 17:17:06 2026 -0300
+
+    Merge branch 'feature/integracion-inventario' into develop
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 506f567225c48f049b9e533b06f545de9624258d[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 17:13:51 2026 -0300
+
+    fix(inventario): habilitar interaccion con raton en la UI y arreglar bloqueo de cursor
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit a91a71cf1623b1e8fa99d7115f4e3394554607e6[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 17:07:28 2026 -0300
+
+    fix(inventario): corregir posicion de item y pausar juego al abrir UI
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 28d07b7018a38694fa1f9225a3ddb60755b6af73[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 16:49:40 2026 -0300
+
+    feat(inventario): asignar ItemData de prueba al ItemPickup_Base de Prototype
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit d6d1dc14ba7531943ffc5e868a516aeb0caa173c[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 16:48:48 2026 -0300
+
+    feat(inventario): integrar componente Inventory en Player y colocar ItemPickup_Base en Prototype scene
+
+[33mcommit 09c1fb7ccdb220fda508270302dd4de4a343f8d0[m
+Merge: 478a2d1 53005f0
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 16:35:21 2026 -0300
+
+    Merge branch 'fix/tienda-pausa' into develop
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 53005f0cfe64e8f6a184bb65c2d39e04274dd3d4[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 16:35:13 2026 -0300
+
+    fix(ui): congelar el juego al abrir la tienda mediante Time.timeScale (BUG-03)
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 478a2d1b634bc2670e7f9b25c94af3ed68ec8dcc[m
+Merge: 7050070 4e6c391
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 05:46:16 2026 -0300
+
+    Merge pull request #56 from anasheiew21-rgb/fix/reinicio-ui
+    
+    fix: "Reiniciar" pierde la interfaz y falta Prototype.unity en Build Settings (#55)
+
+[33mcommit 7050070c2b02f70f08f8441bd78250b81df665e1[m
+Merge: 10e96ee bff08e8
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 05:45:56 2026 -0300
+
+    Merge pull request #57 from anasheiew21-rgb/feature/inventario
+    
+    feat: inventario, recolección de ítems e interfaz (HU-05, HU-06)
+
+[33mcommit 10e96ee58cb241fbd3e127dbe39b2d32239cf737[m
+Merge: 02dd5e0 267f886
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 05:45:30 2026 -0300
+
+    Merge pull request #59 from anasheiew21-rgb/fix/enemigo-navegacion
+    
+    fix: enemigo con navegación, patrulla robusta, visión y oído (#58)
+
+[33mcommit 02dd5e0f499ac717726e9baedaa6fc2a9bf2a64b[m
+Merge: 10105c8 f685aa3
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 05:45:20 2026 -0300
+
+    Merge pull request #61 from anasheiew21-rgb/fix/oscuridad-cielo
+    
+    fix: oscuridad sin reflejo celeste y cielo cubierto por la niebla (#60)
+
+[33mcommit 10105c815461a44ea49ced15761fc67a7ca1f5d3[m
+Merge: 0f3f1c5 eb948cc
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sun Sep 27 05:45:00 2026 -0300
+
+    Merge pull request #62 from anasheiew21-rgb/feature/audio-preferencias
+    
+    feat: preferencias de audio con AudioMixer y perfil JSON (T02-T, HU-02)
+
+[33mcommit f685aa37136fd01421c8f862868a240bdbd61cee[m[33m ([m[1;31morigin/fix/oscuridad-cielo[m[33m)[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 05:27:43 2026 -0300
+
+    test: add CP-ENV-06 for approved visibility values #60
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 4fb4f273c21a9733b317f90d1c222f56cae856e5[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 05:27:35 2026 -0300
+
+    fix: tune ambient, fog, moonlight and flashlight for playable darkness #60
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit eb948ccbb65f8cd7cac18e2f5819e78c69d443c0[m[33m ([m[1;31morigin/feature/audio-preferencias[m[33m)[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 05:17:27 2026 -0300
+
+    test: add audio preferences self-test (HU-02) #8
+    
+    AudioPreferencesSelfTest.RunAllAndExit: 9/9 PASS in batch mode, same
+    pattern as the project's other self-tests (EnemyAISelfTest,
+    EnvironmentSelfTest): one CP-AUD-XX case per check, a PASS/FAIL line
+    each, a RESULT line and EditorApplication.Exit. The original
+    menu-only Run() (from b64182c) is kept as-is for manual testing.
+    
+    Also brings Assets/Scripts/Editor/Tests.meta from origin/feature/inventario
+    (GUID d33a0756c286f0240a94b30b2bf9aeaf) instead of the old branch's own
+    copy, to stay consistent with every other branch that uses this folder.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 9e3dd5b74f7938b6c8fa928036cc3e64e7ff45ea[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 05:17:17 2026 -0300
+
+    feat: port audio preferences with AudioMixer and JSON profile (HU-02) #8
+    
+    Brings AudioPreferences (from the abandoned feature/sistema-interaccion
+    branch, commit b64182c) into develop on its own: a static class that
+    persists a master/music/sfx profile as JSON in PlayerPrefs ("AudioProfile")
+    and applies it in decibels to Assets/Audio/Resources/MainMixer.mixer
+    (MasterVolume/MusicVolume/SFXVolume). Not wired into the menu yet or
+    routed to any AudioSource — that integration is HU-02 (#6).
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 2dd434d659e6ad538f770c44ee0e24aeb1dae545[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 03:52:30 2026 -0300
+
+    test: add environment self-test CP-ENV-01..05 #60
+    
+    EnvironmentSelfTest.RunAllAndExit: 5/5 PASS in batch mode. Covers the
+    forced (test-only) application of AplicarCieloYReflejos (camera goes
+    SolidColor with the fog color, skybox goes null, reflection mode goes
+    Custom with no texture), confirms the unforced call is a no-op outside
+    Play mode, and confirms Prototype.unity has exactly one
+    "Suelo_Plano_Principal", no "Suelo_Plano_Principal (1)", and that the
+    remaining floor still has its MeshCollider.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 1524431fa713386acd50a7c8b5eafe611b0078dd[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 03:52:20 2026 -0300
+
+    fix: hide sky and black out environment reflections at runtime (fog covers sky) #60
+    
+    kdg decision: the labyrinth stays without a ceiling, so the sky must be
+    covered by fog instead of geometry. EnvironmentManager now also applies,
+    only while Application.isPlaying (a no-op in edit mode, so opening/saving
+    the scene in the Editor never changes it):
+    
+    - RenderSettings.skybox = null and defaultReflectionMode = Custom with a
+      null custom reflection texture, so environment reflections go black.
+    - Camera.main and every other active camera get clearFlags = SolidColor
+      with backgroundColor = the configured fog color.
+    - DynamicGI.UpdateEnvironment() once per scene load (from OnEnable, not
+      from Update), plus a short bounded retry (10 frames) in case a camera is
+      instantiated after this object.
+    
+    Also fixed the CS0618 warning (FindObjectsByType with FindObjectsSortMode)
+    in BuscarSol without changing its behavior. The existing fog/ambient/sun
+    behavior (AplicarOscuridadEnEditor, still running every frame in both Play
+    and Editor) and its serialized fields are untouched.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 73d9d6e0f08ebdb4adeeb38e5d652b3151bcc3e0[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 03:52:10 2026 -0300
+
+    fix: remove duplicated floor plane from Prototype scene #60
+    
+    "Suelo_Plano_Principal (1)" was an exact duplicate of "Suelo_Plano_Principal"
+    (same parent, position, scale and material) added by 0f3f1c5, causing
+    z-fighting. Removed with QuitarPisoDuplicado, a one-shot editor tool (kept
+    for traceability) that verifies both objects match within tolerance before
+    destroying only the duplicate and saving the scene.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 267f88647c5ea559349c051aa91d52445b543954[m[33m ([m[1;31morigin/fix/enemigo-navegacion[m[33m)[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 02:27:23 2026 -0300
+
+    test: add EnemyAI self-test CP-ENE-01..07 and relax CP-NAV-03 tolerance #58
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 995869c552d6ffd913d8707a1f11d80dbf06ef27[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 02:27:17 2026 -0300
+
+    fix: migrate EnemyAI to NavMeshAgent with robust patrol, investigate and hearing (HU-08, RF11) #58
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 18dc5933da2af5c7e0b61c37dfa20cfbce56fd2c[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 01:27:49 2026 -0300
+
+    test: add enemy navigation self-test CP-NAV-01..08 #58
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 85ff08cd8044b10e26d3c8e675779c403982fa40[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sun Sep 27 01:27:41 2026 -0300
+
+    feat: build NavMesh at runtime for scenes with enemies (HU-08) #58
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit bff08e88ab5a6b304cc530109a52961f98988f7b[m[33m ([m[1;31morigin/feature/inventario[m[33m)[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sat Sep 26 19:38:17 2026 -0300
+
+    docs: add inventory technical doc and manual test results (HU-05, HU-06) #16 #21
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit 0f11e193de5119aa47cdef27e0e0c7c5fd481bfc[m
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sat Sep 26 19:38:09 2026 -0300
+
+    test: add validate-only mode to inventory test scene builder
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+[33mcommit b5d64355cd76decadfafd8344789ced536d9be09[m
+Merge: 74ab98d 0f3f1c5
+Author: xXviskelXx <viskelrodriguez2007@gmail.com>
+Date:   Sat Sep 26 19:34:27 2026 -0300
+
+    chore: merge develop into feature/inventario
+
+[33mcommit 0f3f1c59159cd595e6ea6dfe7ab044be0b43fc1f[m
+Author: kdg <gualco.ian@tecnica7.edu.ar>
+Date:   Sat Sep 26 14:38:07 2026 -0300
+
+    Oscuridad, arreglos
