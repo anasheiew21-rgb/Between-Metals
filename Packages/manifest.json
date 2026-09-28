@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.tripo3d.unitybridge": "file:C:/Users/User/Desktop/Tripo3d_Unity_Bridge",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.ai.navigation": "2.0.14",
     "com.unity.collab-proxy": "2.13.6",
