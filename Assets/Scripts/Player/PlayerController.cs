@@ -3,8 +3,8 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
     [Header("Movimiento")]
-    public float walkSpeed = 5f;
-    public float sprintSpeed = 8f;
+    public float walkSpeed = 8f;
+    public float sprintSpeed = 10f;
 
     [Header("Salto")]
     [SerializeField] private float jumpForce = 7f;

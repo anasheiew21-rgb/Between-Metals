@@ -810,8 +810,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d22cf211b92479949a252b359b7737c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
-  walkSpeed: 5
-  sprintSpeed: 8
+  walkSpeed: 7
+  sprintSpeed: 10
   jumpForce: 7
   groundCheckDistance: 0.2
   groundMask:
@@ -1016,7 +1016,7 @@ Light:
   serializedVersion: 13
   m_Type: 0
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 20
+  m_Intensity: 3500
   m_Range: 20
   m_SpotAngle: 55
   m_InnerSpotAngle: 21.80208
@@ -12743,7 +12743,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerStats
   maxHealth: 100
   currentHealth: 100
-  maxStamina: 100
+  maxStamina: 200
   currentStamina: 100
   staminaDrainPerSecond: 20
   staminaRegenPerSecond: 15
