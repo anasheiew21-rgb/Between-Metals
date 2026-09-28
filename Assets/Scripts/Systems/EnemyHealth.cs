@@ -24,6 +24,16 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     public event Action<float, float> AlRecibirDaño; // (actual, maximo)
     public event Action AlMorir;
 
+    // Autoagrega el feedback visual de daño (T14-F) para que ningun enemigo con EnemyHealth
+    // necesite que alguien le agregue EnemyHitFeedback a mano en el Editor. Esto acopla
+    // puntualmente EnemyHealth a EnemyHitFeedback; a cambio, "tener vida" alcanza para "flashear
+    // al recibir daño" sin pasos manuales. Solo corre en Play (Awake no llega a correr en Editor
+    // sin Play, ver el comentario de VidaActual mas arriba), asi que no afecta a los self-tests.
+    void Awake()
+    {
+        if (GetComponent<EnemyHitFeedback>() == null) gameObject.AddComponent<EnemyHitFeedback>();
+    }
+
     public void TakeDamage(float cantidad)
     {
         if (!EstaVivo || cantidad <= 0f) return;
