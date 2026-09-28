@@ -63,6 +63,11 @@ public static class EnemyNavigationSelfTest
         EnemyAI[] enemigos = UnityEngine.Object.FindObjectsByType<EnemyAI>(FindObjectsInactive.Exclude);
         PlayerStats jugador = UnityEngine.Object.FindAnyObjectByType<PlayerStats>();
 
+        // En modo Editor (sin Play) Start() nunca corre, asi que la ruta de patrulla nunca se
+        // construye sola: se dispara aca a mano, mismo orden que produce el Start() real, para que
+        // CP-NAV-05 vea los waypoints ya corregidos/filtrados en vez del dato crudo de diseno.
+        foreach (EnemyAI enemigo in enemigos) enemigo.ConstruirRutaValida();
+
         Run("CP-NAV-01", "El NavMesh tiene triangulos", () =>
         {
             NavMeshTriangulation tri = NavMesh.CalculateTriangulation();

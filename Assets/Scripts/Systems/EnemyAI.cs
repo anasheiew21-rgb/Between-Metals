@@ -243,12 +243,22 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+    // Radio de busqueda generoso para corregir un waypoint cuya Y de diseno haya quedado muy lejos
+    // del piso real (ej. un arrastre accidental en el Editor): RadioBusquedaNavMesh (3m) es el que
+    // se usa para el resto de los chequeos finos, pero no alcanza para un desfasaje de decenas de
+    // metros como el que puede dejar ese tipo de error.
+    const float RadioCorreccionWaypointLejano = 40f;
+
     // Descarta waypoints null o sin camino completo hacia ellos. Con 2 o mas validos, patrulla
     // ciclica; si no, EstaDeambulando pasa a valer true y se usa ElegirPuntoDeambular().
-    void ConstruirRutaValida()
+    // Publico para las pruebas (CP-NAV-05): asi el self-test de Editor puede disparar la misma
+    // correccion sin tener que simular un Start() completo (que necesitaria Play mode para que el
+    // NavMeshAgent llegue a registrarse).
+    public void ConstruirRutaValida()
     {
         rutaValida.Clear();
         List<string> descartados = null;
+        List<string> corregidos = null;
 
         if (waypoints != null)
         {
@@ -260,6 +270,19 @@ public class EnemyAI : MonoBehaviour
                     if (descartados == null) descartados = new List<string>();
                     descartados.Add($"[{i}] null");
                     continue;
+                }
+
+                // Mismo mecanismo que AsegurarSobreNavMesh usa consigo mismo: si el waypoint no
+                // esta cerca del NavMesh, se intenta corregir su posicion (en memoria, nunca en la
+                // escena guardada) antes de darlo por invalido.
+                if (!NavMesh.SamplePosition(wp.position, out NavMeshHit hitCerca, RadioBusquedaNavMesh, NavMesh.AllAreas))
+                {
+                    if (NavMesh.SamplePosition(wp.position, out NavMeshHit hitLejos, RadioCorreccionWaypointLejano, NavMesh.AllAreas))
+                    {
+                        if (corregidos == null) corregidos = new List<string>();
+                        corregidos.Add($"[{i}] {wp.name} ({wp.position} -> {hitLejos.position})");
+                        wp.position = hitLejos.position;
+                    }
                 }
 
                 NavMeshPath camino = CaminoTemporal();
@@ -277,10 +300,11 @@ public class EnemyAI : MonoBehaviour
             }
         }
 
-        if (!avisoRutaLogueado && descartados != null)
+        if (!avisoRutaLogueado && (descartados != null || corregidos != null))
         {
             avisoRutaLogueado = true;
-            Debug.LogWarning($"{name}: waypoints descartados: {string.Join(", ", descartados)}. HU-08 #58");
+            if (corregidos != null) Debug.LogWarning($"{name}: waypoints corregidos por estar lejos del NavMesh: {string.Join(", ", corregidos)}. HU-08 #58");
+            if (descartados != null) Debug.LogWarning($"{name}: waypoints descartados: {string.Join(", ", descartados)}. HU-08 #58");
         }
 
         indiceWaypoint = 0;
