@@ -12716,13 +12716,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShopManager
   items:
-  - item: {fileID: 0}
+  - item: {fileID: 11400000, guid: 3dfa20dda5a0e0bac35ba003c685bcc4, type: 2}
     precio: 15
     cantidad: 5
-  - item: {fileID: 0}
+  - item: {fileID: 11400000, guid: d71dcacd95d864f926ed5722f2bc6c05, type: 2}
     precio: 8
     cantidad: 3
-  - item: {fileID: 0}
+  - item: {fileID: 11400000, guid: c2c456f77371826118b27f22bc6fcdf3, type: 2}
     precio: 5
     cantidad: 10
   controlador: {fileID: 587344467}
