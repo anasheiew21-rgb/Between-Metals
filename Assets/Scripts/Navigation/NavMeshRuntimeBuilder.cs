@@ -12,6 +12,13 @@ using Debug = UnityEngine.Debug;
 public static class NavMeshRuntimeBuilder
 {
     const string NombreObjeto = "_NavMeshRuntime";
+    const string NombreObjetoLinks = "_NavMeshLinksRuntime";
+    // Si el punto mas cercano alcanzable de un lado queda a mas de esto del punto mas cercano
+    // alcanzable del otro lado, no se asume que sea el mismo hueco/puerta: se prefiere dejar el
+    // camino incompleto antes que tender un link gigante entre dos zonas del mapa que en realidad
+    // no deberian estar conectadas.
+    const float DistanciaMaximaLink = 6f;
+    const float RadioMuestreoConexion = 5f;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoCrear()
@@ -43,8 +50,98 @@ public static class NavMeshRuntimeBuilder
 
         ExcluirLoQueSeMueve();
         BuildNavMesh(surface);
+        ConectarIslasDesconectadas();
 
         return surface;
+    }
+
+    // El "Glade" que arma SpawnZoneBuilder (o cualquier otra pieza generada por separado, como el
+    // laberinto de MapaBuilder) puede quedar geometricamente pegada al resto del mapa sin que la
+    // voxelizacion del NavMesh las una en una sola region (una costura de un par de cm alcanza para
+    // que Recast las trate como islas separadas). En vez de asumir donde esta esa costura, se la
+    // busca en tiempo de ejecucion: el ultimo corner de un camino PathPartial es el punto mas
+    // cercano al destino dentro de la propia isla (el borde de la costura de este lado); desde ahi,
+    // BuscarPuenteCercano barre un radio corto alrededor buscando el primer punto que SI este
+    // conectado con el destino (el otro lado de la misma costura), y un NavMeshLink entre ambos
+    // tiende el puente. Nunca toca la escena guardada: todo esto vive en memoria (HU-08).
+    static void ConectarIslasDesconectadas()
+    {
+        PlayerStats jugador = Object.FindAnyObjectByType<PlayerStats>();
+        if (jugador == null) return;
+        if (!NavMesh.SamplePosition(jugador.transform.position, out NavMeshHit hitJugador, RadioMuestreoConexion, NavMesh.AllAreas)) return;
+
+        if (GameObject.Find(NombreObjetoLinks) != null) return; // ya se corrio antes en esta escena
+
+        GameObject contenedor = null;
+
+        foreach (EnemyAI enemigo in Object.FindObjectsByType<EnemyAI>(FindObjectsInactive.Exclude))
+        {
+            if (!NavMesh.SamplePosition(enemigo.transform.position, out NavMeshHit hitEnemigo, RadioMuestreoConexion, NavMesh.AllAreas))
+                continue;
+
+            NavMeshPath ida = new NavMeshPath();
+            bool calculoIda = NavMesh.CalculatePath(hitEnemigo.position, hitJugador.position, NavMesh.AllAreas, ida);
+            if (calculoIda && ida.status == NavMeshPathStatus.PathComplete) continue; // ya conectados
+            if (ida.corners.Length == 0) continue;
+
+            Vector3 borde = ida.corners[ida.corners.Length - 1];
+            if (!BuscarPuenteCercano(borde, hitJugador.position, DistanciaMaximaLink, out Vector3 puente)) continue;
+
+            if (contenedor == null) contenedor = new GameObject(NombreObjetoLinks);
+            CrearLink(contenedor.transform, borde, puente);
+        }
+    }
+
+    // Barre circulos concentricos (de 0.5 en 0.5 m, en 16 direcciones) alrededor de "borde" hasta
+    // "radioMaximo", buscando el primer punto de NavMesh que tenga un camino completo hacia
+    // "referenciaConectada". "borde" mismo nunca lo tiene (es, por definicion, el limite de una isla
+    // que no llega a esa referencia): lo que se busca es el punto valido mas cercano del otro lado
+    // de la costura.
+    static bool BuscarPuenteCercano(Vector3 borde, Vector3 referenciaConectada, float radioMaximo, out Vector3 puente)
+    {
+        const int Direcciones = 16;
+        const float Paso = 0.5f;
+
+        for (float radio = Paso; radio <= radioMaximo; radio += Paso)
+        {
+            for (int i = 0; i < Direcciones; i++)
+            {
+                float angulo = i * (360f / Direcciones) * Mathf.Deg2Rad;
+                Vector3 candidato = borde + new Vector3(Mathf.Cos(angulo), 0f, Mathf.Sin(angulo)) * radio;
+
+                if (!NavMesh.SamplePosition(candidato, out NavMeshHit hit, Paso * 0.75f, NavMesh.AllAreas)) continue;
+
+                NavMeshPath prueba = new NavMeshPath();
+                bool conectado = NavMesh.CalculatePath(referenciaConectada, hit.position, NavMesh.AllAreas, prueba)
+                    && prueba.status == NavMeshPathStatus.PathComplete;
+
+                if (conectado)
+                {
+                    puente = hit.position;
+                    return true;
+                }
+            }
+        }
+
+        puente = borde;
+        return false;
+    }
+
+    static void CrearLink(Transform padre, Vector3 a, Vector3 b)
+    {
+        GameObject go = new GameObject("NavMeshLink_Auto");
+        go.transform.SetParent(padre, true);
+        go.transform.position = a;
+
+        NavMeshLink link = go.AddComponent<NavMeshLink>();
+        link.startPoint = Vector3.zero;
+        link.endPoint = go.transform.InverseTransformPoint(b);
+        link.width = 1f;
+        link.bidirectional = true;
+        link.agentTypeID = 0;
+        link.UpdateLink();
+
+        Debug.Log($"[NavMeshRuntime] NavMeshLink automatico entre {a} y {b} (distancia {Vector3.Distance(a, b):0.00} m)");
     }
 
     // Todo lo que camina o se recoge queda afuera del NavMesh: si no, el propio collider del
