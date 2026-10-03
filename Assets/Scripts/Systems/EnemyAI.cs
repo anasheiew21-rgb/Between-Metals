@@ -92,6 +92,12 @@ public class EnemyAI : MonoBehaviour
     public int CantidadWaypointsValidos => rutaValida.Count;
     public bool EstaDeambulando => rutaValida.Count < 2;
     public Estado EstadoActual => estado;
+    // Velocidad horizontal actual del agente (0 si todavia no esta sobre el NavMesh); la usa
+    // EnemyAnimator para el blend de locomocion, igual que PlayerCombat expone AlAtacar para el
+    // Animator del jugador.
+    public float VelocidadActual => agent != null && agent.isOnNavMesh ? agent.velocity.magnitude : 0f;
+
+    public event System.Action AlAtacar;
 
     void Start()
     {
@@ -427,6 +433,7 @@ public class EnemyAI : MonoBehaviour
     {
         if (cooldownAtaqueRestante > 0f) return;
         cooldownAtaqueRestante = attackCooldown;
+        AlAtacar?.Invoke();
         if (statsJugador != null) statsJugador.TakeDamage(attackDamage);
     }
 
