@@ -1,9 +1,10 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 
-// Orquesta de punta a punta lo que antes eran dos pasos manuales (Animacion/Build Animator
-// Controller + Between Metals/Enemigos/Reemplazar esfera por modelo): abre Prototype.unity,
-// arma Creature.controller y aplica el modelo+Animator a cada EnemyAI, despues guarda la escena.
+// Orquesta de punta a punta lo que antes eran pasos manuales (Animacion/Build Animator
+// Controller + Reemplazar esfera por modelo + Corregir modelo, hitbox y audio): abre Prototype.unity,
+// arma Creature.controller, aplica el modelo+Animator a cada EnemyAI, corrige el alineamiento
+// modelo/hitbox, el material y el audio (EnemySetupFixer), y despues guarda la escena.
 // Pensado tambien para -executeMethod BuildEnemySetup.Run en modo batch (CI/automatizacion).
 public static class BuildEnemySetup
 {
@@ -16,6 +17,7 @@ public static class BuildEnemySetup
 
         AnimacionControllerBuilder.Build();
         EnemyModelSetup.ReemplazarEsferaPorModelo();
+        EnemySetupFixer.CorregirEnemigos();
 
         EditorSceneManager.SaveOpenScenes();
     }

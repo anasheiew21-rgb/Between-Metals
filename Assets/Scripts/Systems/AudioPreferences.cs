@@ -30,6 +30,12 @@ public static class AudioPreferences
     static AudioMixer mixer;
     static bool mixerLookupDone;
 
+    // Nombre del grupo (no del parametro expuesto) al que se rutean los SFX del juego.
+    const string SfxGroupName = "sfx";
+
+    static AudioMixerGroup sfxGroup;
+    static bool sfxGroupLookupDone;
+
     public static float Master
     {
         get { return Profile.master; }
@@ -136,5 +142,36 @@ public static class AudioPreferences
     public static float ToDecibels(float linear)
     {
         return linear <= 0.0001f ? MinDecibels : Mathf.Log10(linear) * 20f;
+    }
+
+    // Grupo "sfx" del mixer, para que los AudioSource que se crean en tiempo de ejecucion
+    // (EnemyAI, PlayerStats) queden ruteados ahi y el slider de SFX del menu los afecte. Devuelve
+    // null si todavia no existe el asset del mixer o el grupo, y en ese caso el AudioSource suena
+    // igual, solo que directo al Master.
+    public static AudioMixerGroup SfxGroup
+    {
+        get
+        {
+            if (!sfxGroupLookupDone)
+            {
+                sfxGroupLookupDone = true;
+                AudioMixer m = Mixer;
+                if (m != null)
+                {
+                    AudioMixerGroup[] grupos = m.FindMatchingGroups(SfxGroupName);
+                    if (grupos != null && grupos.Length > 0) sfxGroup = grupos[0];
+                }
+            }
+            return sfxGroup;
+        }
+    }
+
+    // No pisa un grupo ya elegido a mano en el Inspector: solo completa el que falta.
+    public static void RutearASfx(AudioSource source)
+    {
+        if (source == null || source.outputAudioMixerGroup != null) return;
+
+        AudioMixerGroup grupo = SfxGroup;
+        if (grupo != null) source.outputAudioMixerGroup = grupo;
     }
 }

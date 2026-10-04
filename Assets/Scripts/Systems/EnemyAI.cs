@@ -7,6 +7,16 @@ using UnityEngine.AI;
 // Migrado de Rigidbody a NavMeshAgent: usa el NavMesh que arma NavMeshRuntimeBuilder en tiempo de
 // carga. El Rigidbody se mantiene en la escena (lo exige [RequireComponent]) pero se vuelve
 // cinematico: ya no empuja el movimiento, solo evita que otros sistemas de fisica lo ignoren.
+//
+// Sincronizacion modelo <-> hitbox: el movimiento lo manda SIEMPRE este objeto (el padre, el que
+// tiene NavMeshAgent + CapsuleCollider). El modelo 3D es un hijo que solo anima: por eso en Awake se
+// le apaga Apply Root Motion, que es lo que hacia que la malla se adelantara o se fuera caminando
+// lejos de su collider. El agente ademas copia el radio/alto de la capsula para que "lo que se ve" y
+// "lo que choca" midan lo mismo.
+//
+// Combate: Atacar() ya no aplica dano al tocar el rango; arma un golpe pendiente que resuelve
+// OnAttackHit(), llamado por el Animation Event del clip de ataque en el frame exacto del impacto
+// (ver EnemyAnimationEvents, el puente desde el Animator del hijo hasta aca).
 [RequireComponent(typeof(Rigidbody))]
 public class EnemyAI : MonoBehaviour
 {
@@ -46,6 +56,35 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private float attackRange = 1.5f;
     [SerializeField] private float attackDamage = 10f;
     [SerializeField] private float attackCooldown = 1.2f;
+    [Tooltip("Angulo total (grados) por delante del enemigo en el que el golpe puede conectar")]
+    [SerializeField] private float anguloAtaque = 120f;
+    [Tooltip("Metros extra sobre attackRange que se perdonan al confirmar el golpe: el jugador se movio entre el inicio de la animacion y el frame del impacto")]
+    [SerializeField] private float margenRangoGolpe = 0.5f;
+    [Tooltip("Si el Animation Event OnAttackHit no llega en este tiempo (clip sin evento configurado), el golpe se resuelve igual para no perder el dano")]
+    [SerializeField] private float tiempoMaximoEsperaGolpe = 0.5f;
+    [Tooltip("Desactivalo cuando TODOS los clips de ataque ya tengan su Animation Event: el dano pasa a depender solo del frame de impacto")]
+    [SerializeField] private bool golpeDeRespaldoSinEvento = true;
+
+    [Header("Movimiento / modelo 3D")]
+    [Tooltip("Velocidad de giro del cuerpo hacia donde camina")]
+    [SerializeField] private float velocidadGiro = 10f;
+    [Tooltip("Apaga Apply Root Motion del Animator del modelo: el desplazamiento lo manda el NavMeshAgent, no la animacion")]
+    [SerializeField] private bool desactivarRootMotion = true;
+    [Tooltip("Material del enemigo. Si se asigna, se aplica a los SkinnedMeshRenderer del modelo en Awake (antes de que EnemyHitFeedback cachee el color), asi el modelo nunca queda blanco")]
+    [SerializeField] private Material enemyMaterial;
+
+    [Header("Audio")]
+    [Tooltip("Si se deja vacio se busca/crea un AudioSource en este objeto al entrar en juego")]
+    [SerializeField] private AudioSource audioSource;
+    [SerializeField] private AudioClip attackSound;
+    [Tooltip("Rugidos/gruñidos que suenan cada tanto mientras persigue al jugador")]
+    [SerializeField] private AudioClip[] roarSounds;
+    [SerializeField] private float minRoarInterval = 4f;
+    [SerializeField] private float maxRoarInterval = 9f;
+    [Range(0f, 1f)][SerializeField] private float volumenAtaque = 1f;
+    [Range(0f, 1f)][SerializeField] private float volumenRugido = 1f;
+    [Tooltip("Distancia a la que el sonido del enemigo deja de oirse (AudioSource 3D)")]
+    [SerializeField] private float alcanceAudio = 25f;
 
     const float IntervaloActualizarDestinoPersecucion = 0.2f;
     const float IntervaloDeteccion = 0.1f; // ~10 chequeos de vision por segundo (en vez de cada frame)
@@ -53,6 +92,9 @@ public class EnemyAI : MonoBehaviour
     const float RadioBusquedaNavMesh = 3f;
     const int IntentosElegirPuntoDeambular = 10;
     const int MaxImpactosVision = 8;
+    // Si el AudioSource esta ocupado con un sonido dominante (el ataque), el rugido no lo pisa: se
+    // reintenta en este lapso corto en vez de perderse hasta el proximo intervalo completo.
+    const float ReintentoRugidoOcupado = 0.25f;
 
     Estado estado = Estado.Patrulla;
     int indiceWaypoint;
@@ -69,6 +111,11 @@ public class EnemyAI : MonoBehaviour
     Vector3 ultimaPosicionConocida;
     bool avisoNavMeshLogueado;
     bool avisoRutaLogueado;
+    bool avisoEventoGolpeLogueado;
+    bool avisoRadioAgenteLogueado;
+    bool golpePendiente;
+    float tiempoEsperandoGolpe;
+    float tiempoHastaProximoRugido;
 
     Transform jugador;
     PlayerStats statsJugador;
@@ -76,6 +123,7 @@ public class EnemyAI : MonoBehaviour
     NavMeshAgent agent;
     Rigidbody rb;
     EnemyHealth salud;
+    Animator animatorModelo;
     Collider[] propiosColliders; // para que el rayo de vision no se choque contra si mismo
     readonly List<Transform> rutaValida = new List<Transform>();
     readonly RaycastHit[] impactosVision = new RaycastHit[MaxImpactosVision];
@@ -96,8 +144,22 @@ public class EnemyAI : MonoBehaviour
     // EnemyAnimator para el blend de locomocion, igual que PlayerCombat expone AlAtacar para el
     // Animator del jugador.
     public float VelocidadActual => agent != null && agent.isOnNavMesh ? agent.velocity.magnitude : 0f;
+    // Hay un ataque empezado esperando su frame de impacto (lo consultan las pruebas, CP-ENE-08+)
+    public bool TieneGolpePendiente => golpePendiente;
+    public float DanoDeAtaque => attackDamage;
 
     public event System.Action AlAtacar;
+
+    // El modelo y su material se resuelven en Awake, no en Start: EnemyHitFeedback cachea en su
+    // Start el color del Renderer para volver a el despues del flash rojo, asi que si el material se
+    // asignara en Start el flash podria "restaurar" el blanco del material por defecto.
+    void Awake()
+    {
+        animatorModelo = GetComponentInChildren<Animator>();
+        AplicarMaterialAlModelo();
+        PrepararModelo();
+        AsegurarPuenteDeEventos();
+    }
 
     void Start()
     {
@@ -113,6 +175,7 @@ public class EnemyAI : MonoBehaviour
         propiosColliders = GetComponentsInChildren<Collider>();
 
         InicializarNavegacion();
+        AsegurarAudioSource();
 
         // HU-14: si el enemigo tiene EnemyHealth, la IA se apaga sola al morir. Sin ese
         // componente (prefabs viejos todavia sin combate) el enemigo sigue como antes.
@@ -130,6 +193,9 @@ public class EnemyAI : MonoBehaviour
     void ManejarMuerte()
     {
         if (agent != null && agent.isOnNavMesh) agent.isStopped = true;
+        // Un golpe a medio camino muere con el enemigo: si el clip de ataque ya estaba corriendo y
+        // su Animation Event llega despues, OnAttackHit() lo va a ignorar.
+        golpePendiente = false;
         enabled = false;
     }
 
@@ -144,6 +210,10 @@ public class EnemyAI : MonoBehaviour
         }
 
         if (cooldownAtaqueRestante > 0f) cooldownAtaqueRestante -= Time.deltaTime;
+
+        // El golpe pendiente se vigila antes de la maquina de estados: si el jugador escapa a mitad
+        // del swing, el ataque igual tiene que cerrarse (con o sin dano) en vez de quedar colgado.
+        ActualizarGolpePendiente();
 
         // RF10: no hace falta chequear la vision cada frame, con ~10 veces por segundo alcanza.
         tiempoDesdeUltimaDeteccion += Time.deltaTime;
@@ -190,6 +260,10 @@ public class EnemyAI : MonoBehaviour
         tienePuntoDeambular = false;
         tiempoDeambulando = 0f;
 
+        // Al pasar a persecucion el primer rugido sale enseguida (es el aviso de que te vio); los
+        // siguientes van cada minRoarInterval..maxRoarInterval.
+        if (nuevo == Estado.Persecucion) tiempoHastaProximoRugido = 0f;
+
         if (agent != null) agent.isStopped = false;
     }
 
@@ -217,8 +291,45 @@ public class EnemyAI : MonoBehaviour
         agent.acceleration = 12f;
         agent.updateRotation = false; // la rotacion la maneja MirarHacia() a mano, igual que antes
 
+        SincronizarFormaDelAgente();
+
         rb = GetComponent<Rigidbody>();
         if (rb != null) rb.isKinematic = true;
+    }
+
+    // "Lo que se ve" y "lo que choca" tienen que medir lo mismo: el agente copia el radio y el alto
+    // de la capsula del enemigo (la que EnemySetupFixer calcula midiendo el modelo ya escalado) en
+    // vez de quedarse con los 0.5 / 2 m por defecto, que con un modelo grande dejan a la malla
+    // metiendose en las paredes mientras su hitbox va por otro lado.
+    void SincronizarFormaDelAgente()
+    {
+        CapsuleCollider capsula = GetComponent<CapsuleCollider>();
+        if (agent == null || capsula == null) return;
+
+        Vector3 escala = transform.lossyScale;
+        float escalaXZ = Mathf.Max(Mathf.Abs(escala.x), Mathf.Abs(escala.z));
+        float radio = Mathf.Max(0.1f, capsula.radius * escalaXZ);
+        float alto = Mathf.Max(radio * 2f, capsula.height * Mathf.Abs(escala.y));
+
+        // El NavMesh se hornea con el radio del tipo de agente (NavMeshRuntimeBuilder usa el 0,
+        // Humanoid): pedirle al agente un radio mas grande que ese no le abre mas espacio, solo lo
+        // hace temblar contra las paredes y trabarse en los pasillos. Se respeta ese techo y se
+        // avisa una vez, porque si la malla es mucho mas ancha va a rozar las paredes igual.
+        float radioHorneado = NavMesh.GetSettingsByID(agent.agentTypeID).agentRadius;
+        if (radioHorneado > 0f && radio > radioHorneado)
+        {
+            if (!avisoRadioAgenteLogueado)
+            {
+                avisoRadioAgenteLogueado = true;
+                Debug.LogWarning($"{name}: el modelo mide {radio:0.00} m de radio pero el NavMesh esta " +
+                    $"horneado para {radioHorneado:0.00} m. Se usa el del NavMesh; si la malla roza las " +
+                    "paredes, hay que achicar el modelo o hornear el NavMesh con un agente mas ancho.", this);
+            }
+            radio = radioHorneado;
+        }
+
+        agent.radius = radio;
+        agent.height = alto;
     }
 
     // Inicializacion perezosa: si el NavMesh todavia no estaba armado cuando el agente se creo,
@@ -317,6 +428,147 @@ public class EnemyAI : MonoBehaviour
     }
 
     // ---------------------------------------------------------------
+    // Modelo 3D: material, root motion y puente de Animation Events
+    // ---------------------------------------------------------------
+
+    // Pone enemyMaterial en todos los slots de todos los SkinnedMeshRenderer del modelo. Es la red
+    // de seguridad del problema "el modelo se ve blanco": si el FBX se importo sin material (o su
+    // busqueda de texturas fallo), igual entra en juego con el material correcto. Lo prolijo sigue
+    // siendo dejarlo asignado en el propio SkinnedMeshRenderer; esto no reemplaza eso, lo cubre.
+    void AplicarMaterialAlModelo()
+    {
+        if (enemyMaterial == null) return;
+
+        SkinnedMeshRenderer[] mallas = GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        if (mallas.Length == 0)
+        {
+            Debug.LogWarning($"{name}: hay enemyMaterial asignado pero el modelo no tiene ningun SkinnedMeshRenderer.", this);
+            return;
+        }
+
+        for (int i = 0; i < mallas.Length; i++)
+        {
+            int slots = Mathf.Max(1, mallas[i].sharedMaterials.Length);
+            Material[] materiales = new Material[slots];
+            for (int s = 0; s < slots; s++) materiales[s] = enemyMaterial;
+            mallas[i].sharedMaterials = materiales;
+        }
+    }
+
+    // Apply Root Motion prendido + clips con desplazamiento (los de Mixamo que no son "in place")
+    // = la malla se va caminando sola y deja atras al NavMeshAgent y a la hitbox. El desplazamiento
+    // lo manda el agente, asi que la animacion tiene que quedarse en el lugar.
+    void PrepararModelo()
+    {
+        if (!desactivarRootMotion || animatorModelo == null) return;
+        animatorModelo.applyRootMotion = false;
+    }
+
+    // Unity busca el metodo de un Animation Event en los componentes del GameObject que tiene el
+    // Animator, que aca es el hijo del modelo, no este objeto. EnemyAnimationEvents vive en ese
+    // hijo y reenvia la llamada; se agrega solo para que no haga falta acordarse en el Editor.
+    void AsegurarPuenteDeEventos()
+    {
+        if (animatorModelo == null) return;
+        if (animatorModelo.GetComponent<EnemyAnimationEvents>() == null)
+        {
+            animatorModelo.gameObject.AddComponent<EnemyAnimationEvents>();
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Audio (SFX de ataque + rugidos en persecucion)
+    // ---------------------------------------------------------------
+
+    // Solo crea el AudioSource en juego: en modo Editor (los self-tests invocan Start() por
+    // reflexion) no se le agregan componentes a la escena, y ReproducirSfx cae en PlayClipAtPoint.
+    void AsegurarAudioSource()
+    {
+        if (audioSource != null) return;
+
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            if (!Application.isPlaying) return;
+            audioSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        audioSource.playOnAwake = false;
+        audioSource.loop = false;
+        audioSource.spatialBlend = 1f; // 3D: el rugido tiene que sonar donde esta el bicho
+        audioSource.rolloffMode = AudioRolloffMode.Logarithmic;
+        audioSource.minDistance = 2f;
+        audioSource.maxDistance = alcanceAudio;
+        AudioPreferences.RutearASfx(audioSource); // asi el slider de SFX del menu lo afecta
+    }
+
+    void ReproducirSfx(AudioClip clip, float volumen)
+    {
+        if (clip == null) return;
+
+        AsegurarAudioSource();
+        if (audioSource == null)
+        {
+            // Fuera de Play Mode no se reproduce nada: Destroy con retardo (lo que usa
+            // PlayClipAtPoint) no es valido en modo edicion y ensuciaria los self-tests.
+            if (Application.isPlaying) AudioSource.PlayClipAtPoint(clip, transform.position, volumen);
+            return;
+        }
+
+        audioSource.PlayOneShot(clip, volumen);
+    }
+
+    // Rugidos mientras persigue: un clip al azar cada minRoarInterval..maxRoarInterval. No pisa un
+    // sonido dominante (el ataque): si el AudioSource esta ocupado, reintenta enseguida.
+    void ActualizarRugidos()
+    {
+        if (roarSounds == null || roarSounds.Length == 0) return;
+
+        tiempoHastaProximoRugido -= Time.deltaTime;
+        if (tiempoHastaProximoRugido > 0f) return;
+
+        if (audioSource != null && audioSource.isPlaying)
+        {
+            tiempoHastaProximoRugido = ReintentoRugidoOcupado;
+            return;
+        }
+
+        AudioClip rugido = ElegirClipAleatorio(roarSounds);
+        tiempoHastaProximoRugido = SiguienteIntervaloRugido(minRoarInterval, maxRoarInterval);
+        if (rugido == null) return;
+
+        ReproducirSfx(rugido, volumenRugido);
+    }
+
+    // Helpers puros (sin escena) para poder probar la seleccion y los intervalos: CP-ENE-11/12.
+    // Saltea los huecos vacios que suele dejar el arreglo del Inspector al agrandarlo.
+    public static AudioClip ElegirClipAleatorio(AudioClip[] clips)
+    {
+        if (clips == null || clips.Length == 0) return null;
+
+        int validos = 0;
+        for (int i = 0; i < clips.Length; i++) if (clips[i] != null) validos++;
+        if (validos == 0) return null;
+
+        int elegido = Random.Range(0, validos);
+        for (int i = 0; i < clips.Length; i++)
+        {
+            if (clips[i] == null) continue;
+            if (elegido == 0) return clips[i];
+            elegido--;
+        }
+        return null;
+    }
+
+    // Tolera que min y max vengan invertidos o negativos desde el Inspector.
+    public static float SiguienteIntervaloRugido(float min, float max)
+    {
+        float desde = Mathf.Max(0f, Mathf.Min(min, max));
+        float hasta = Mathf.Max(desde, Mathf.Max(min, max));
+        return Random.Range(desde, hasta);
+    }
+
+    // ---------------------------------------------------------------
     // Patrulla / Deambular
     // ---------------------------------------------------------------
     void Patrullar()
@@ -397,7 +649,11 @@ public class EnemyAI : MonoBehaviour
     {
         if (agent != null) agent.speed = chaseSpeed;
 
-        float distancia = Vector3.Distance(transform.position, jugador.position);
+        ActualizarRugidos();
+
+        // Distancia horizontal: el pivote del jugador esta a la altura de su cuerpo, asi que medir
+        // en 3D inflaria el rango de ataque segun la diferencia de altura con el piso.
+        float distancia = DistanciaHorizontalAlJugador();
 
         if (veAlJugador) tiempoSinVerJugador = 0f;
         else tiempoSinVerJugador += Time.deltaTime;
@@ -418,23 +674,96 @@ public class EnemyAI : MonoBehaviour
         }
 
         // El destino se actualiza como maximo cada 0.2s (no hace falta recalcular el camino cada
-        // frame), pero la rotacion hacia el jugador se sigue actualizando siempre para que no se
-        // vea trabada.
+        // frame), pero la rotacion se sigue actualizando siempre para que no se vea trabada.
         tiempoDesdeUltimoDestino += Time.deltaTime;
         if (tiempoDesdeUltimoDestino >= IntervaloActualizarDestinoPersecucion)
         {
             tiempoDesdeUltimoDestino = 0f;
             MoverHacia(jugador.position, chaseSpeed);
         }
-        MirarHacia(jugador.position);
+        MirarHaciaElMovimiento();
     }
 
+    // Arranca el ataque: dispara la animacion y el SFX, y deja un golpe pendiente. El dano se
+    // aplica recien en OnAttackHit(), en el frame de impacto del clip (o, si ese clip todavia no
+    // tiene su Animation Event, por el respaldo de ActualizarGolpePendiente()).
     void Atacar()
     {
         if (cooldownAtaqueRestante > 0f) return;
         cooldownAtaqueRestante = attackCooldown;
-        AlAtacar?.Invoke();
-        if (statsJugador != null) statsJugador.TakeDamage(attackDamage);
+
+        golpePendiente = true;
+        tiempoEsperandoGolpe = 0f;
+
+        AlAtacar?.Invoke();               // EnemyAnimator -> animator.SetTrigger("Attack")
+        ReproducirSfx(attackSound, volumenAtaque);
+    }
+
+    // Lo llama el Animation Event "OnAttackHit" del clip de ataque, via EnemyAnimationEvents del
+    // hijo con el Animator. Publico a proposito: es la interfaz que ve la ventana de Animation.
+    public void OnAttackHit()
+    {
+        if (!golpePendiente) return; // evento fuera de un ataque, o golpe ya resuelto: se ignora
+
+        golpePendiente = false;
+        AplicarDanoSiConecta();
+    }
+
+    // Respaldo: si el clip de ataque no tiene el Animation Event configurado, el golpe no se
+    // resolveria nunca. Pasado tiempoMaximoEsperaGolpe se resuelve igual (avisando una vez por
+    // enemigo), asi el enemigo no queda inofensivo por un paso de Editor pendiente.
+    void ActualizarGolpePendiente()
+    {
+        if (!golpePendiente) return;
+
+        tiempoEsperandoGolpe += Time.deltaTime;
+        if (tiempoEsperandoGolpe < tiempoMaximoEsperaGolpe) return;
+
+        golpePendiente = false;
+
+        if (!avisoEventoGolpeLogueado)
+        {
+            avisoEventoGolpeLogueado = true;
+            Debug.LogWarning($"{name}: el clip de ataque no llamo a OnAttackHit() en {tiempoMaximoEsperaGolpe}s. " +
+                "Agregale el Animation Event en el frame del impacto, o subi tiempoMaximoEsperaGolpe si el " +
+                "impacto del clip cae mas tarde que eso (ver EnemyAnimationEvents).", this);
+        }
+
+        if (golpeDeRespaldoSinEvento) AplicarDanoSiConecta();
+    }
+
+    bool AplicarDanoSiConecta()
+    {
+        if (statsJugador == null || !JugadorEnRangoDeGolpe()) return false;
+
+        statsJugador.TakeDamage(attackDamage);
+        return true;
+    }
+
+    // Se vuelve a validar rango y angulo en el frame del impacto: entre el inicio de la animacion y
+    // el golpe el jugador pudo escapar, y en ese caso el golpe tiene que fallar.
+    // Publico para las pruebas (CP-ENE-09/10).
+    public bool JugadorEnRangoDeGolpe()
+    {
+        if (jugador == null) return false;
+
+        Vector3 hacia = jugador.position - transform.position;
+        hacia.y = 0f;
+        float distancia = hacia.magnitude;
+
+        if (distancia > attackRange + margenRangoGolpe) return false;
+        if (distancia < 0.0001f) return true; // encimado: no hay direccion que medir
+
+        return Vector3.Angle(transform.forward, hacia) <= anguloAtaque * 0.5f;
+    }
+
+    float DistanciaHorizontalAlJugador()
+    {
+        if (jugador == null) return float.MaxValue;
+
+        Vector3 delta = jugador.position - transform.position;
+        delta.y = 0f;
+        return delta.magnitude;
     }
 
     // ---------------------------------------------------------------
@@ -502,7 +831,7 @@ public class EnemyAI : MonoBehaviour
         agent.speed = velocidad;
         agent.isStopped = false;
         agent.SetDestination(destino);
-        MirarHacia(destino);
+        MirarHaciaElMovimiento();
 
         return !agent.pathPending
             && agent.remainingDistance <= agent.stoppingDistance
@@ -514,13 +843,27 @@ public class EnemyAI : MonoBehaviour
         if (agent != null) agent.isStopped = true;
     }
 
+    // Gira hacia donde el agente va a dar el proximo paso (desiredVelocity), no hacia el destino
+    // final: mirar el destino en linea recta a traves de una pared hacia que el modelo se viera
+    // caminando de costado respecto de su propio movimiento.
+    void MirarHaciaElMovimiento()
+    {
+        if (agent == null || !agent.isOnNavMesh) return;
+
+        Vector3 direccion = agent.desiredVelocity;
+        direccion.y = 0f;
+        if (direccion.sqrMagnitude < 0.01f) return;
+
+        MirarHacia(transform.position + direccion);
+    }
+
     void MirarHacia(Vector3 objetivo)
     {
         Vector3 direccion = objetivo - transform.position;
         direccion.y = 0f;
         if (direccion.sqrMagnitude < 0.0001f) return;
 
-        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direccion), 10f * Time.deltaTime);
+        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direccion), velocidadGiro * Time.deltaTime);
     }
 
     bool PuedeVerAlJugador()
