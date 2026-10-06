@@ -14,14 +14,15 @@ using UnityEngine.SceneManagement;
 //   C = columna contada desde el OESTE (1 = la de la izquierda del plano)
 public static class MapaBuilder
 {
-    // ---- Tamano del laberinto, en celdas. Cambialo y vuelve a generar ----
-    const int Filas = 13;    // celdas de norte a sur
-    const int Columnas = 11; // celdas de oeste a este
+    // ---- Tamano del laberinto y medidas: viven en MapaLayout (Assets/Scripts/Maze), que tambien usan
+    // las barreras dinamicas en runtime. Cambialas ahi y vuelve a generar. ----
+    const int Filas = MapaLayout.Filas;       // celdas de norte a sur
+    const int Columnas = MapaLayout.Columnas; // celdas de oeste a este
     const int Semilla = 424242; // mismo numero = mismo laberinto. Cambialo para obtener otro distinto.
 
     // ---- Medidas en metros ----
-    const float AnchoCalle = 6f;   // ancho de cada pasillo (y grosor de un muro)
-    const float AltoMuro = 8f;     // altura de los muros del laberinto
+    const float AnchoCalle = MapaLayout.AnchoCalle; // ancho de cada pasillo (y grosor de un muro)
+    const float AltoMuro = MapaLayout.AltoMuro;     // altura de los muros del laberinto
     const bool CrearTecho = false; // plano extra a la altura de los muros
 
     // ---- Escalera y habitacion del comerciante ----
@@ -613,10 +614,7 @@ public static class MapaBuilder
     // Fila 0 = norte (+Z). Columna 0 = oeste (-X). Coincide con como se miden los muros del laberinto.
     static Vector3 GridToWorld(float row, float col)
     {
-        return new Vector3(
-            (col - (ColumnasGrilla - 1) / 2f) * AnchoCalle,
-            0f,
-            ((FilasGrilla - 1) / 2f - row) * AnchoCalle);
+        return MapaLayout.GrillaALocal(row, col);
     }
 
     static Transform Vacio(string nombre, Transform padre)
