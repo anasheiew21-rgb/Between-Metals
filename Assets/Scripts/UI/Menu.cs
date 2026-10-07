@@ -76,13 +76,38 @@ public static class KeyBindings
 
 public class Menu : MonoBehaviour
 {
+    // El mismo componente sirve para las dos pantallas, en vez de duplicar las de Audio/Graficos/
+    // Controles en un segundo script:
+    //   Pausa     -> el de siempre, dentro de la escena de juego: Esc lo abre y lo cierra, y
+    //                mientras esta abierto el juego queda congelado (Time.timeScale = 0).
+    //   Principal -> el de la escena de inicio (Assets/Scenes/MenuPrincipal.unity): no se puede
+    //                cerrar, "Jugar" carga la escena de juego y no congela nada (no hay partida
+    //                todavia que congelar). El fondo con la foto lo dibuja FondoMenu, aparte.
+    public enum Modo { Pausa, Principal }
+
     [Header("Menu")]
     public string gameTitle = "Between Metals";
-    [Tooltip("Si esta activo, el juego arranca en pausa con el menu abierto")]
-    public bool openOnStart = true;
+
+    [Tooltip("Pausa = menu dentro de la partida. Principal = pantalla de inicio, no se puede cerrar")]
+    public Modo modo = Modo.Pausa;
+
+    [Tooltip("Solo en modo Pausa: si esta activo, el juego arranca en pausa con el menu abierto")]
+    public bool openOnStart = false;
+
+    [Tooltip("Solo en modo Principal: escena que carga el boton Jugar")]
+    public string escenaDeJuego = "Prototype";
+
+    [Tooltip("Solo en modo Pausa: escena que carga el boton 'Menu principal'")]
+    public string escenaMenuPrincipal = "MenuPrincipal";
+
+    [Tooltip("Cuanto se oscurece lo que hay detras del menu. En modo Principal conviene bajo, para que se vea la foto de fondo")]
+    [Range(0f, 1f)] public float oscurecerFondo = 0.75f;
 
     // Los scripts del jugador lo consultan para ignorar la entrada mientras el menu esta abierto
     public static bool IsOpen { get; private set; }
+
+    /// <summary>Verdadero si este menu es la pantalla de inicio y no el menu de pausa.</summary>
+    public bool EsMenuPrincipal => modo == Modo.Principal;
 
     // Opciones ahora es un selector de categoria (Audio/Graficos/Controles), cada una su propia
     // pantalla; VolverAtras() sabe que las 3 categorias vuelven a Opciones y Opciones vuelve a Principal.
@@ -111,7 +136,7 @@ public class Menu : MonoBehaviour
     {
         sensitivity = PlayerPrefs.GetFloat(SensitivityKey, 1.0f);
 
-        if (openOnStart) Open();
+        if (EsMenuPrincipal || openOnStart) Open();
         else started = true;
     }
 
@@ -169,7 +194,10 @@ public class Menu : MonoBehaviour
         IsOpen = true;
         estado = EstadoMenu.Principal;
         waiting = null;
-        Time.timeScale = 0f;
+
+        // La escena de inicio no congela nada: no hay partida que congelar, y si quedara en
+        // timeScale 0 el juego arrancaria pausado al cargar la escena de juego desde "Jugar".
+        Time.timeScale = EsMenuPrincipal ? 1f : 0f;
     }
 
     void Close()
@@ -227,9 +255,47 @@ public class Menu : MonoBehaviour
                 estado = EstadoMenu.Principal;
                 break;
             default:
-                if (started) Close();
+                // El menu de inicio no se cierra con Esc: no hay nada atras todavia.
+                if (started && !EsMenuPrincipal) Close();
                 break;
         }
+    }
+
+    // Solo en modo Principal. Arranca la partida cargando la escena de juego; Time.timeScale ya
+    // esta en 1 (ver Open), asi que la escena nueva no arranca congelada.
+    void Jugar()
+    {
+        CargarEscena(escenaDeJuego, "escenaDeJuego");
+    }
+
+    // Solo en modo Pausa. Abandona la partida y vuelve a la pantalla de inicio. No pregunta nada:
+    // el juego todavia no tiene partida guardada, asi que no hay nada que se pueda perder aparte
+    // del progreso de la corrida, igual que ya pasa con "Reiniciar".
+    void VolverAlMenuPrincipal()
+    {
+        CargarEscena(escenaMenuPrincipal, "escenaMenuPrincipal");
+    }
+
+    // Punto unico de carga de escena: se descongela el tiempo y se baja IsOpen ANTES de cargar,
+    // porque los dos son estado global que sobrevive al cambio de escena (Time.timeScale se
+    // quedaria en 0 y la escena nueva arrancaria congelada).
+    void CargarEscena(string escena, string nombreDelCampo)
+    {
+        if (string.IsNullOrWhiteSpace(escena))
+        {
+            Debug.LogError($"Menu: '{nombreDelCampo}' esta vacio; no sabe que escena cargar.", this);
+            return;
+        }
+
+        if (!Application.CanStreamedLevelBeLoaded(escena))
+        {
+            Debug.LogError($"Menu: la escena '{escena}' no esta en las Build Settings. Corré Between Metals > Menu > Crear escena de menu principal (o revisá Between Metals > Menu > Revisar Build Settings).", this);
+            return;
+        }
+
+        IsOpen = false;
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(escena);
     }
 
     void Restart()
@@ -261,10 +327,15 @@ public class Menu : MonoBehaviour
         GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
         float w = Screen.width / s;
 
-        Color old = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, 0.75f);
-        GUI.DrawTexture(new Rect(0, 0, w, 720f), Texture2D.whiteTexture);
-        GUI.color = old;
+        // El velo negro va encima de lo que haya atras: la partida congelada en modo Pausa, o la
+        // foto que dibuja FondoMenu en modo Principal (ahi conviene bajarlo para que se vea).
+        if (oscurecerFondo > 0f)
+        {
+            Color old = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, oscurecerFondo);
+            GUI.DrawTexture(new Rect(0, 0, w, 720f), Texture2D.whiteTexture);
+            GUI.color = old;
+        }
 
         GUILayout.BeginArea(new Rect((w - 460f) / 2f, 90f, 460f, 540f));
         GUILayout.Label(gameTitle, titleStyle);
@@ -282,9 +353,27 @@ public class Menu : MonoBehaviour
 
     void DrawMain()
     {
+        if (EsMenuPrincipal)
+        {
+            // Sin "Reiniciar": antes de empezar no hay partida que reiniciar, haria lo mismo que Jugar.
+            if (GUILayout.Button("Jugar", buttonStyle)) Jugar();
+            if (GUILayout.Button("Opciones", buttonStyle)) AbrirOpciones();
+            if (GUILayout.Button("Salir", buttonStyle)) Quit();
+            return;
+        }
+
         if (GUILayout.Button(started ? "Continuar" : "Jugar", buttonStyle)) Close();
         if (GUILayout.Button("Opciones", buttonStyle)) AbrirOpciones();
         if (GUILayout.Button("Reiniciar", buttonStyle)) Restart();
+
+        // Gris si la escena del menu todavia no existe (nadie corrio MenuPrincipalBuilder): se ve
+        // que el boton esta, pero no se puede apretar para que no tire un error al vacio.
+        bool hayMenuPrincipal = !string.IsNullOrWhiteSpace(escenaMenuPrincipal)
+            && Application.CanStreamedLevelBeLoaded(escenaMenuPrincipal);
+        GUI.enabled = hayMenuPrincipal;
+        if (GUILayout.Button("Menu principal", buttonStyle)) VolverAlMenuPrincipal();
+        GUI.enabled = true;
+
         if (GUILayout.Button("Salir", buttonStyle)) Quit();
     }
 
