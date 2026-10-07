@@ -3,10 +3,13 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// Barras de vida y estamina en pantalla, conectadas a PlayerStats por eventos (no sondea en
-// Update, solo suaviza visualmente el valor que ya llego). Arma su propio Canvas por codigo al
-// arrancar: es lo unico del proyecto que usa uGUI en vez de OnGUI, porque Image.FillMethod pide
-// un Canvas real. No hace falta tocar la escena para usarlo.
+// Barras de vida y estamina y contador de oro en pantalla, conectados a PlayerStats por eventos
+// (no sondea en Update, solo suaviza visualmente el valor que ya llego). Arma su propio Canvas por
+// codigo al arrancar: es lo unico del proyecto que usa uGUI en vez de OnGUI, porque
+// Image.FillMethod pide un Canvas real. No hace falta tocar la escena para usarlo.
+//
+// El oro no es una barra (no tiene maximo): es un cartelito con el numero, en el mismo amarillo
+// que ya usa el panel de la tienda para que el jugador lea el mismo dato en los dos lados.
 public class PlayerUI : MonoBehaviour
 {
     [Header("Jugador")]
@@ -18,11 +21,13 @@ public class PlayerUI : MonoBehaviour
     [SerializeField] private Color colorVidaBaja = new Color(1f, 0.9f, 0.1f);
     [SerializeField] private Color colorEstamina = new Color(0.15f, 0.6f, 0.85f);
     [SerializeField] private Color colorEstaminaAgotada = new Color(0.5f, 0.5f, 0.5f);
+    [Tooltip("Mismo amarillo que el 'Oro:' del panel de la tienda (ShopManager.oroStyle)")]
+    [SerializeField] private Color colorOro = new Color(1f, 0.85f, 0.4f);
     [Range(0f, 1f)] [SerializeField] private float umbralVidaBaja = 0.3f;
     [SerializeField] private float velocidadSuavizado = 8f;
 
     Image rellenoVida, rellenoEstamina;
-    Text textoVida, textoEstamina;
+    Text textoVida, textoEstamina, textoOro;
     float rellenoObjetivoVida = 1f, rellenoObjetivoEstamina = 1f;
     float vidaMostrada = 1f, estaminaMostrada = 1f;
 
@@ -56,8 +61,10 @@ public class PlayerUI : MonoBehaviour
         {
             stats.AlCambiarVida += ActualizarVida;
             stats.AlCambiarEstamina += ActualizarEstamina;
+            stats.AlCambiarOro += ActualizarOro;
             ActualizarVida(stats.CurrentHealth, stats.MaxHealth);
             ActualizarEstamina(stats.CurrentStamina, stats.MaxStamina);
+            ActualizarOro(stats.Oro);
         }
         else
         {
@@ -70,6 +77,7 @@ public class PlayerUI : MonoBehaviour
         if (stats == null) return;
         stats.AlCambiarVida -= ActualizarVida;
         stats.AlCambiarEstamina -= ActualizarEstamina;
+        stats.AlCambiarOro -= ActualizarOro;
     }
 
     void Update()
@@ -94,6 +102,13 @@ public class PlayerUI : MonoBehaviour
         rellenoObjetivoEstamina = maximo > 0f ? actual / maximo : 0f;
         if (rellenoEstamina != null) rellenoEstamina.color = actual <= 0f ? colorEstaminaAgotada : colorEstamina;
         if (textoEstamina != null) textoEstamina.text = Mathf.CeilToInt(actual) + " / " + Mathf.CeilToInt(maximo);
+    }
+
+    // Lo dispara PlayerStats.AlCambiarOro, asi que se actualiza solo al recoger una moneda y al
+    // comprar o vender en la tienda: no hay un segundo contador que pueda quedar desincronizado.
+    void ActualizarOro(int actual)
+    {
+        if (textoOro != null) textoOro.text = "Oro: " + actual;
     }
 
     // ---------------------------------------------------------------
@@ -123,6 +138,43 @@ public class PlayerUI : MonoBehaviour
 
         CrearBarra(canvas.transform, "BarraVida", new Vector2(30f, -30f), colorVida, out rellenoVida, out textoVida);
         CrearBarra(canvas.transform, "BarraEstamina", new Vector2(30f, -70f), colorEstamina, out rellenoEstamina, out textoEstamina);
+        CrearEtiqueta(canvas.transform, "ContadorOro", new Vector2(30f, -110f), colorOro, out textoOro);
+    }
+
+    // Mismo fondo oscuro y misma tipografia que CrearBarra, pero sin relleno: el oro no tiene
+    // maximo, asi que una barra no significaria nada. Va debajo de las dos barras, en la misma
+    // columna, y mas angosto porque solo lleva un numero.
+    static void CrearEtiqueta(Transform padre, string nombre, Vector2 posicionEsquina, Color colorTexto, out Text texto)
+    {
+        const float ancho = 130f, alto = 28f;
+
+        GameObject fondoGO = new GameObject(nombre + "_Fondo", typeof(RectTransform));
+        fondoGO.transform.SetParent(padre, false);
+        RectTransform rtFondo = fondoGO.GetComponent<RectTransform>();
+        rtFondo.anchorMin = new Vector2(0f, 1f);
+        rtFondo.anchorMax = new Vector2(0f, 1f);
+        rtFondo.pivot = new Vector2(0f, 1f);
+        rtFondo.anchoredPosition = posicionEsquina;
+        rtFondo.sizeDelta = new Vector2(ancho, alto);
+        Image imgFondo = fondoGO.AddComponent<Image>();
+        imgFondo.color = new Color(0f, 0f, 0f, 0.6f);
+
+        GameObject textoGO = new GameObject(nombre + "_Texto", typeof(RectTransform));
+        textoGO.transform.SetParent(fondoGO.transform, false);
+        RectTransform rtTexto = textoGO.GetComponent<RectTransform>();
+        rtTexto.anchorMin = Vector2.zero;
+        rtTexto.anchorMax = Vector2.one;
+        rtTexto.offsetMin = Vector2.zero;
+        rtTexto.offsetMax = Vector2.zero;
+        Text txt = textoGO.AddComponent<Text>();
+        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txt.alignment = TextAnchor.MiddleCenter;
+        txt.color = colorTexto;
+        txt.fontSize = 16;
+        txt.fontStyle = FontStyle.Bold;
+        txt.text = "";
+
+        texto = txt;
     }
 
     // Fondo oscuro + relleno tipo Image.FillMethod.Horizontal + texto numerico encima
