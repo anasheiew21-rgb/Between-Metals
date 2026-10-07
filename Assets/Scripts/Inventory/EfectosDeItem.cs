@@ -140,8 +140,9 @@ public class EfectosDeItem : MonoBehaviour
         return 0f;
     }
 
-    // Un itemId desconocido no es un error (Antorcha e Item_Prueba no tienen efecto): se ignora en
-    // silencio, sin avisos que ensucien la consola cada vez que se usa cualquier otra cosa.
+    // Un itemId desconocido no es un error (las llaves, el arma e Item_Prueba no tienen efecto de
+    // uso): se ignora en silencio, sin avisos que ensucien la consola cada vez que se usa
+    // cualquier otra cosa.
     void AplicarEfecto(ItemData item)
     {
         if (item == null) return;
