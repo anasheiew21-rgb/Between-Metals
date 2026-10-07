@@ -634,6 +634,30 @@ PrefabInstance:
       propertyPath: item
       value: 
       objectReference: {fileID: 11400000, guid: c2c456f77371826118b27f22bc6fcdf3, type: 2}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1640872980}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: Notificar
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: ActivadorSenalAmbiental, Assembly-CSharp
+      objectReference: {fileID: 0}
     - target: {fileID: 7242302889590709925, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
       propertyPath: m_Name
       value: ItemPickup_RacionDeComida
@@ -917,6 +941,30 @@ PrefabInstance:
       propertyPath: item
       value: 
       objectReference: {fileID: 11400000, guid: 3dfa20dda5a0e0bac35ba003c685bcc4, type: 2}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1640872980}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: Notificar
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: ActivadorSenalAmbiental, Assembly-CSharp
+      objectReference: {fileID: 0}
     - target: {fileID: 7242302889590709925, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
       propertyPath: m_Name
       value: ItemPickup_PocionDeVida
@@ -13123,6 +13171,68 @@ CapsuleCollider:
   m_Height: 1.0380648
   m_Direction: 1
   m_Center: {x: -0.06251907, y: 0.5190324, z: 0.014909744}
+--- !u!1001 &1043731182
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1729871757}
+    m_Modifications:
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -42
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -42
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2930825067378117437, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_Name
+      value: Senal_Plaza_Amplia_A
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 429eaaed1898253499650511a662bb88, type: 3}
+--- !u!4 &1043731183 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+  m_PrefabInstance: {fileID: 1043731182}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1307384483
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -13817,6 +13927,79 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &1596468452
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1729871757}
+    m_Modifications:
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 42
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 42
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2930825067378117437, guid: 429eaaed1898253499650511a662bb88, type: 3}
+      propertyPath: m_Name
+      value: Senal_Plaza_Amplia_B
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 429eaaed1898253499650511a662bb88, type: 3}
+--- !u!4 &1596468453 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1449242825766847146, guid: 429eaaed1898253499650511a662bb88, type: 3}
+  m_PrefabInstance: {fileID: 1596468452}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1596468454 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1916460293220805392, guid: 429eaaed1898253499650511a662bb88, type: 3}
+  m_PrefabInstance: {fileID: 1596468452}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dff741a62e9ad7e4686bada6ec286451, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SenalAmbiental
 --- !u!1 &1604450738
 GameObject:
   m_ObjectHideFlags: 0
@@ -13848,6 +14031,53 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1640872978
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1640872979}
+  - component: {fileID: 1640872980}
+  m_Layer: 0
+  m_Name: Activador_Senal_Plaza_Amplia_B
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1640872979
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1640872978}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1729871757}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1640872980
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1640872978}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36e7928289c779d4da859420b9fd673e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ActivadorSenalAmbiental
+  senales:
+  - {fileID: 1596468454}
+  eventosRequeridos: 3
 --- !u!1 &1721462568
 GameObject:
   m_ObjectHideFlags: 0
@@ -13879,6 +14109,40 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1729871756
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1729871757}
+  m_Layer: 0
+  m_Name: Senales_Ambientales
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1729871757
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1729871756}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1043731183}
+  - {fileID: 1596468453}
+  - {fileID: 1640872979}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1739183783
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -13891,6 +14155,30 @@ PrefabInstance:
       propertyPath: item
       value: 
       objectReference: {fileID: 11400000, guid: d71dcacd95d864f926ed5722f2bc6c05, type: 2}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1640872980}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: Notificar
+      objectReference: {fileID: 0}
+    - target: {fileID: 5811057045168975014, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
+      propertyPath: onPickedUp.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: ActivadorSenalAmbiental, Assembly-CSharp
+      objectReference: {fileID: 0}
     - target: {fileID: 7242302889590709925, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
       propertyPath: m_Name
       value: ItemPickup_Antorcha
@@ -14129,3 +14417,4 @@ SceneRoots:
   - {fileID: 605208915}
   - {fileID: 1739183783}
   - {fileID: 470759125}
+  - {fileID: 1729871757}
