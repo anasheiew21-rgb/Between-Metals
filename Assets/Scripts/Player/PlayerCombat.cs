@@ -11,12 +11,22 @@ public class PlayerCombat : MonoBehaviour
     [Header("Ataque")]
     [SerializeField] private float attackRange = 1.8f;
     [SerializeField] private float attackRadius = 0.4f;
-    [SerializeField] private float attackDamage = 25f;
     [SerializeField] private float attackCooldown = 0.8f;
     [SerializeField] private LayerMask capasAtaque = ~0;
 
+    [Header("Daño")]
+    [Tooltip("Daño de un golpe a mano limpia. Contra los 200 de vida de un enemigo: 10 golpes.")]
+    [SerializeField] private float danoBase = 20f;
+
+    [Tooltip("Daño de un golpe con el arma que vende el comerciante. Contra 200 de vida: 3 golpes.")]
+    [SerializeField] private float danoConArma = 75f;
+
     [Header("Cámara")]
     [SerializeField] private Camera playerCamera;
+
+    [Header("Equipo")]
+    [Tooltip("Si se deja vacío se busca un EquipoJugador en el jugador o en la escena.")]
+    [SerializeField] private EquipoJugador equipo;
 
     // Gancho para el Animator (aun sin Animator en el proyecto): se dispara justo al ejecutar un
     // ataque valido, haya impactado o no. No reemplaza al cooldown, que es quien decide si el
@@ -25,6 +35,16 @@ public class PlayerCombat : MonoBehaviour
 
     private PlayerStats stats;
     private float cooldownRestante;
+
+    // Se cachea aparte del campo serializado, para no escribir nunca un campo serializado desde
+    // código (en modo edición ensuciaría la escena, mismo criterio que EfectosDeItem).
+    private EquipoJugador equipoResuelto;
+
+    /// <summary>
+    /// Daño que hace el golpe de ahora: con arma equipada o a mano limpia. Se resuelve en cada
+    /// golpe (no se cachea) porque el arma se compra y se vende en medio de la partida.
+    /// </summary>
+    public float DanoActual => ResolverEquipo()?.ArmaEquipada == true ? danoConArma : danoBase;
 
     void Start()
     {
@@ -63,7 +83,19 @@ public class PlayerCombat : MonoBehaviour
         if (Physics.SphereCast(ray, attackRadius, out RaycastHit hit, attackRange, capasAtaque, QueryTriggerInteraction.Ignore))
         {
             IDamageable objetivo = hit.collider.GetComponentInParent<IDamageable>();
-            objetivo?.TakeDamage(attackDamage);
+            objetivo?.TakeDamage(DanoActual);
         }
+    }
+
+    // EquipoJugador se instala solo desde un RuntimeInitializeOnLoadMethod, que no garantiza
+    // haber corrido antes que este Start: por eso se resuelve cuando hace falta y no una sola vez
+    // al arrancar. Si no aparece ninguno, el jugador pega siempre a mano limpia.
+    EquipoJugador ResolverEquipo()
+    {
+        if (equipo != null) return equipo;
+        if (equipoResuelto != null) return equipoResuelto;
+
+        equipoResuelto = GetComponentInParent<EquipoJugador>() ?? FindAnyObjectByType<EquipoJugador>();
+        return equipoResuelto;
     }
 }

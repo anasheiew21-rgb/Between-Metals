@@ -37,6 +37,18 @@ public class MonedaPickup : MonoBehaviour, IInteractable
     public bool Recogida => recogida;
 
     /// <summary>
+    /// Cambia el oro que entrega esta moneda. La usa BotinEnemigo para que un mismo prefab de
+    /// moneda sirva para enemigos que valen distinto, sin duplicar assets. Una moneda ya recogida
+    /// se ignora: su valor ya se cobró y cambiarlo no significaría nada.
+    /// </summary>
+    public void Configurar(int oroQueEntrega)
+    {
+        if (recogida) return;
+
+        valor = Mathf.Max(1, oroQueEntrega);
+    }
+
+    /// <summary>
     /// Texto del cartel de interacción, con el oro que entrega. Vacío si ya se recogió, para que el
     /// cartel desaparezca (mismo criterio que ItemPickup.TextoPrompt).
     /// </summary>
