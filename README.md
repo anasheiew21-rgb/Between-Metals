@@ -15,12 +15,16 @@ comentarios están en español.
 
 ## Integrantes y roles
 
-| Integrante | Rol | Cuenta de GitHub |
-| --- | --- | --- |
-| Ian Gualco | Project Manager | `anasheiew21-rgb` / `kdg` |
-| Viskel Rodriguez | Programador | `xXviskelXx` |
-| Valentin Cerdan | Analista de Marketing / Diseñador / Analista de Negocio | `Enanonashei` |
-| Christopher Ibana | Analista Funcional | `seppe67` |
+| Integrante | Rol | Cuenta de GitHub | Identidad en el historial de Git |
+| --- | --- | --- | --- |
+| Ian Gualco | Project Manager | `anasheiew21-rgb` | `kdg`, `anasheiew21-rgb` |
+| Viskel Rodriguez | Programador | `xXviskelXx` | `xXviskelXx` |
+| Valentin Cerdan | Analista de Marketing / Diseñador / Analista de Negocio | `Enanouwu` | `Enanonashei` |
+| Christopher Ibana | Analista Funcional | `seppe67` | `seppe67` |
+
+Algunos integrantes commitearon desde más de una configuración local de Git, por lo que el
+nombre que aparece en el historial no siempre coincide con el de su cuenta de GitHub. La
+última columna reconcilia ambas.
 
 ## Tecnologías
 
