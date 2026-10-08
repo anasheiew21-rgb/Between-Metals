@@ -116,6 +116,9 @@ public class Menu : MonoBehaviour
     [Tooltip("Cuanto se oscurece lo que hay detras del menu. En modo Principal conviene bajo, para que se vea la foto de fondo")]
     [Range(0f, 1f)] public float oscurecerFondo = 0.75f;
 
+    [Tooltip("Solo en modo Principal: baja la columna de botones, en px del lienzo de 1280x720. Sirve para que no tape el titulo de la foto de fondo")]
+    [Range(0f, 300f)] public float desplazamientoBotones = 0f;
+
     // Los scripts del jugador lo consultan para ignorar la entrada mientras el menu esta abierto
     public static bool IsOpen { get; private set; }
 
@@ -331,8 +334,12 @@ public class Menu : MonoBehaviour
 
     // Titular en Helvetica Bold y MAYUSCULAS, con una rayita roja debajo: es el unico acento de
     // color de la pantalla cuando no hay ningun boton primario a la vista.
+    // Un titulo vacio no dibuja nada, ni la rayita roja: es como se apaga el titulo del menu de
+    // inicio cuando la foto de fondo ya trae el nombre del juego (si no, salen los dos).
     void DibujarTitulo(Rect area, string texto)
     {
+        if (string.IsNullOrWhiteSpace(texto)) return;
+
         var r = new Rect(area.x, area.y + TituloY, area.width, AltoTitulo);
         GUI.Label(r, texto.ToUpperInvariant(), EstiloUI.Titulo);
         EstiloUI.Rellenar(new Rect(area.center.x - AnchoRegla * 0.5f, r.yMax + 12f, AnchoRegla, 2f), EstiloUI.RojoSangre);
@@ -342,7 +349,11 @@ public class Menu : MonoBehaviour
     // hacer. Los demas van secundarios, para que el rojo siga siendo el 10% de la pantalla.
     void DibujarPrincipal(Rect area)
     {
-        GUILayout.BeginArea(Columna(area, EstiloUI.AnchoColumna, BotonesY, 340f));
+        // El desplazamiento solo corre en el menu de inicio: ahi la foto de fondo puede tener su
+        // propio titulo y hace falta bajar la columna para no taparlo. En pausa el fondo es la
+        // partida congelada y la columna va donde siempre.
+        float y = BotonesY + (EsMenuPrincipal ? desplazamientoBotones : 0f);
+        GUILayout.BeginArea(Columna(area, EstiloUI.AnchoColumna, y, 340f));
 
         if (EsMenuPrincipal)
         {
