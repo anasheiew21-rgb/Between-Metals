@@ -37,7 +37,7 @@ public static class SonidosUI
             ? GUILayout.Button(texto, estilo, opciones)
             : GUILayout.Button(texto, opciones);
 
-        RevisarHover(GUILayoutUtility.GetLastRect());
+        RevisarHoverDelUltimo();
 
         if (apretado) Reproducir(BibliotecaDeSonidos.BotonClick, VolumenClick);
         return apretado;
@@ -53,7 +53,7 @@ public static class SonidosUI
             ? GUILayout.Button(texto, estilo, opciones)
             : GUILayout.Button(texto, opciones);
 
-        RevisarHover(GUILayoutUtility.GetLastRect());
+        RevisarHoverDelUltimo();
 
         if (apretado) Reproducir(BibliotecaDeSonidos.BotonAtras, VolumenClick);
         return apretado;
@@ -90,13 +90,28 @@ public static class SonidosUI
         Reproducir(BibliotecaDeSonidos.BotonClick, VolumenClick);
     }
 
-    // Solo en Repaint: OnGUI corre varias veces por frame (Layout, MouseMove, Repaint...) y en las
-    // otras pasadas el rectangulo todavia no esta calculado. Event.current.mousePosition ya viene
-    // transformada por el GUI.matrix de la pantalla, asi que compararla con el rect funciona igual
-    // con el escalado por resolucion que hacen Menu/GameOverUI/VictoryUI.
+    // Version para los botones de GUILayout. El chequeo de Repaint va ANTES de pedir el rect y no
+    // dentro de RevisarHover: durante el evento Layout la posicion todavia no esta calculada y
+    // GUILayoutUtility.GetLastRect() devuelve un rect de relleno (y segun la version de Unity,
+    // encima avisa por consola). Pidiendolo solo en Repaint no hay nada que descartar despues.
+    static void RevisarHoverDelUltimo()
+    {
+        if (!EsRepaint()) return;
+
+        RevisarHover(GUILayoutUtility.GetLastRect());
+    }
+
+    static bool EsRepaint()
+    {
+        return Event.current != null && Event.current.type == EventType.Repaint;
+    }
+
+    // Event.current.mousePosition ya viene transformada por el GUI.matrix de la pantalla, asi que
+    // compararla con el rect funciona igual con el escalado por resolucion que hacen
+    // Menu/GameOverUI/VictoryUI.
     static void RevisarHover(Rect rect)
     {
-        if (Event.current == null || Event.current.type != EventType.Repaint) return;
+        if (!EsRepaint()) return;
 
         // Un boton gris (GUI.enabled = false, como "Comprar" sin oro en la tienda) no responde al
         // click, asi que tampoco tiene que sonar al pasarle por encima.
