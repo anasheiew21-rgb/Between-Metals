@@ -62,6 +62,7 @@ public static class AudioJuegoSelfTest
                 BibliotecaDeSonidos.MusicaSuspenso,
                 BibliotecaDeSonidos.LinternaEncender, BibliotecaDeSonidos.LinternaApagar,
                 BibliotecaDeSonidos.ItemGenerico, BibliotecaDeSonidos.Moneda,
+                BibliotecaDeSonidos.MuroDeslizando,
             };
 
             var faltantes = new List<string>();
@@ -73,6 +74,21 @@ public static class AudioJuegoSelfTest
             return faltantes.Count == 0
                 ? null
                 : "no se encontraron: " + string.Join(", ", faltantes);
+        });
+
+        Run("CP-AUDJ-15", "El sonido de los muros dura mas que lo que tarda un muro en hundirse", () =>
+        {
+            AudioClip muro = BibliotecaDeSonidos.Clip(BibliotecaDeSonidos.MuroDeslizando);
+            if (muro == null) return "no se encontro el clip de los muros";
+
+            // MuroSecreto.duracionApertura vale 2.5s por defecto. Si el clip durara menos, el
+            // sonido se cortaria con el muro todavia moviendose y se notaria el corte.
+            const float DuracionAperturaMuro = 2.5f;
+            if (muro.length < DuracionAperturaMuro)
+            {
+                return $"el clip dura {muro.length:0.00}s y el muro tarda {DuracionAperturaMuro:0.00}s en abrirse";
+            }
+            return null;
         });
 
         Run("CP-AUDJ-02", "Una ruta inexistente devuelve null sin lanzar excepcion", () =>
