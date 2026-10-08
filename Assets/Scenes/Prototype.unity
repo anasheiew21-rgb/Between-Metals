@@ -6834,10 +6834,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 4.2630444
-  m_Height: 8.526089
+  m_Radius: 2.8420296
+  m_Height: 5.684059
   m_Direction: 1
-  m_Center: {x: 0, y: 4.2630444, z: 0}
+  m_Center: {x: 0, y: 2.8420296, z: 0}
 --- !u!1 &322505656
 GameObject:
   m_ObjectHideFlags: 0
@@ -17600,7 +17600,7 @@ NavMeshAgent:
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
-  m_Height: 5.684059
+  m_Height: 5.684628
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
@@ -17748,10 +17748,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 4.2630444
-  m_Height: 8.526089
+  m_Radius: 2.842314
+  m_Height: 5.684628
   m_Direction: 1
-  m_Center: {x: 0, y: 4.2630444, z: 0}
+  m_Center: {x: 0, y: 2.842314, z: 0}
 --- !u!1 &787732603
 GameObject:
   m_ObjectHideFlags: 0
@@ -33846,10 +33846,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 4.263045
-  m_Height: 8.52609
+  m_Radius: 2.8420298
+  m_Height: 5.6840596
   m_Direction: 1
-  m_Center: {x: 0, y: 4.263045, z: 0}
+  m_Center: {x: 0, y: 2.8420298, z: 0}
 --- !u!114 &995000017
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -52463,7 +52463,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: c7140060d3854e447b5b11e24c09813a, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.27
+      value: 0.29392698
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: c7140060d3854e447b5b11e24c09813a, type: 3}
       propertyPath: m_LocalPosition.z
