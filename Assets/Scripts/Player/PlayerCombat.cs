@@ -1,11 +1,21 @@
 using System;
 using UnityEngine;
 
-// Ataque cuerpo a cuerpo del jugador (HU-14 / T14-F). Al presionar Atacar dispara un SphereCast
-// corto desde la camara; si conecta con un IDamageable (buscado con GetComponentInParent, igual
-// que PlayerInteraction, para tolerar que el collider este en un hijo/mesh) le aplica daño. Cada
-// intento de ataque -conecte o no- consume estamina como recurso secundario y arranca un
-// cooldown, igual que EnemyAI hace del otro lado con su propio ataque.
+// Ataque del jugador (HU-14 / T14-F). Es el UNICO lugar que lee el input de atacar
+// (KeyBindings.Action.Attack, clic izquierdo por defecto y remapeable desde el menu de opciones) y
+// lo rutea segun lo que haya en la mano:
+//
+//   * Con la BALLESTA empunada: delega en Ballesta.Disparar(). El tiro tiene su propia cadencia y
+//     NO gasta estamina: la ballesta es mecanica, lo que cansa es el brazo del cuerpo a cuerpo. Por
+//     eso se decide antes que cualquier chequeo de estamina o de cooldown del golpe.
+//   * Con la daga o a mano limpia: el golpe cuerpo a cuerpo de siempre, un SphereCast corto desde la
+//     camara; si conecta con un IDamageable (buscado con GetComponentInParent, igual que
+//     PlayerInteraction, para tolerar que el collider este en un hijo/mesh) le aplica daño. Cada
+//     intento -conecte o no- consume estamina como recurso secundario y arranca un cooldown, igual
+//     que EnemyAI hace del otro lado con su propio ataque.
+//
+// Que el input viva en un solo lado es lo que evita el bug obvio de tener dos armas: si la ballesta
+// leyera el clic por su cuenta, con la ballesta en la mano un clic dispararia Y pegaria un golpe.
 public class PlayerCombat : MonoBehaviour
 {
     [Header("Ataque")]
@@ -64,6 +74,16 @@ public class PlayerCombat : MonoBehaviour
 
     void IntentarAtacar()
     {
+        // La ballesta se resuelve primero y corta: tiene su propia cadencia y no gasta estamina, asi
+        // que no tiene que pasar ni por el cooldown ni por el PuedeAtacar del golpe (si pasara, un
+        // jugador sin estamina no podria disparar una ballesta, que es absurdo).
+        Ballesta ballesta = ResolverEquipo()?.Ballesta;
+        if (ballesta != null)
+        {
+            if (ballesta.Disparar()) AlAtacar?.Invoke();
+            return;
+        }
+
         // Limite estricto de animacion (T14-F): mientras el cooldown no llego a 0, ningun otro
         // chequeo se evalua ni se dispara AlAtacar.
         if (cooldownRestante > 0f) return;

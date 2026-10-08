@@ -9,12 +9,21 @@ using UnityEngine;
 // que es de donde ItemPickup los toma al arrancar. No hay que tocar la escena: cualquier pickup de
 // ese item, el que ya esta puesto y el que se ponga despues, se dibuja con su modelo.
 //
-// Por que modelos armados con primitivas y no FBX importados: el repo no puede traer modelos con
-// licencia ajena (mismo criterio que GeneradorAudio con los .wav), el resultado es regenerable y
-// versionable, y a la distancia a la que se ven estos objetos -tirados en el piso de un pasillo,
-// alumbrados por una linterna- la silueta es lo unico que se lee. Son placeholders de produccion:
-// para reemplazarlos por un FBX de verdad alcanza con asignarlo en ItemData.modelo3D, sin tocar
-// una linea de C#.
+// Cada item sale de una de dos fuentes, y se intentan en este orden:
+//
+//   1. Un FBX de un pack, si el item tiene uno en la tabla ModelosDeFbx(). Es el caso de la pocion
+//      de vida, que usa Potion_Health del pack Low-Poly Weapons.
+//   2. Primitivas de Unity, la tabla Modelos(). Es el respaldo y lo que usan los items que todavia
+//      no tienen modelo propio.
+//
+// El respaldo no es decorativo: los packs de modelos NO estan en el repo (licencia ajena, mismo
+// criterio que GeneradorAudio con los .wav), asi que en una copia del proyecto sin el pack bajado
+// el item se sigue viendo, con su silueta de primitivas, en vez de desaparecer. Las primitivas
+// tambien siguen siendo razonables de por si: a la distancia a la que se ven estos objetos -tirados
+// en el piso de un pasillo, alumbrados por una linterna- la silueta es lo unico que se lee.
+//
+// Las dos fuentes escriben el MISMO prefab, asi que el ItemData no sabe de donde salio el modelo:
+// para darle un FBX a otro item alcanza con agregarle una fila a ModelosDeFbx().
 //
 // Arma y las llaves no estan aca: ya tienen sus modelos de verdad, que arma ProgresionBuilder a
 // partir de los FBX de Tripo.
@@ -23,6 +32,41 @@ public static class ModelosItemsBuilder
     const string CarpetaItems = "Assets/Items";
     const string CarpetaModelos = "Assets/Prefabs/Items/Modelos";
     const string CarpetaMateriales = "Assets/Materials/Items";
+
+    const string CarpetaPack = "Assets/Low-Poly Weapons";
+    const string TexturaPociones = CarpetaPack + "/Textures/Potions.tif";
+
+    // Un modelo que viene de un FBX de un pack.
+    readonly struct ModeloFbx
+    {
+        public readonly string Fbx;
+        /// <summary>Atlas de color del pack, para armarle el material URP (ver PintarConTextura).</summary>
+        public readonly string Textura;
+        /// <summary>Nombre del material generado, en CarpetaMateriales.</summary>
+        public readonly string Material;
+        /// <summary>Alto final en metros. El FBX se mide y se escala a esta medida, no se confia en la del archivo.</summary>
+        public readonly float Alto;
+
+        public ModeloFbx(string fbx, string textura, string material, float alto)
+        {
+            Fbx = fbx;
+            Textura = textura;
+            Material = material;
+            Alto = alto;
+        }
+    }
+
+    // Que FBX le toca a cada item, por itemId. Un item que no este aca se arma con primitivas.
+    static Dictionary<string, ModeloFbx> ModelosDeFbx()
+    {
+        return new Dictionary<string, ModeloFbx>
+        {
+            // Mismos 0,25 m que tenia el frasco de primitivas, para que el cambio de modelo no
+            // cambie de paso el tamano con el que el item ya estaba balanceado en la escena.
+            ["pocion_vida"] = new ModeloFbx(
+                CarpetaPack + "/Models/Potion_Health.fbx", TexturaPociones, "Item_PocionModelo", 0.25f)
+        };
+    }
 
     // Una pieza del modelo: una primitiva de Unity con su posicion, su escala y su color.
     //
@@ -63,6 +107,10 @@ public static class ModelosItemsBuilder
         {
             // Frasco de 0,25 m: cuerpo ancho, cuello angosto y tapon. La silueta de botella es lo
             // que lo hace reconocible de lejos, mas que el color.
+            //
+            // Hoy es el respaldo: si el pack esta bajado, la pocion se arma con Potion_Health.fbx
+            // (ver ModelosDeFbx) y estas piezas no se usan. Se dejan para la copia del proyecto que
+            // no tenga el pack, y por eso miden lo mismo que el FBX.
             ["pocion_vida"] = new[]
             {
                 new Pieza(PrimitiveType.Cylinder, new Vector3(0f, 0.075f, 0f), new Vector3(0.090f, 0.075f, 0.090f), "Item_PocionVidrio", VidrioRojo),
@@ -101,7 +149,9 @@ public static class ModelosItemsBuilder
 
         foreach (KeyValuePair<string, Pieza[]> entrada in modelos)
         {
-            GameObject prefab = GuardarPrefab(entrada.Key, entrada.Value);
+            // El FBX manda y las primitivas son el respaldo (ver el comentario de arriba). Las dos
+            // guardan el mismo prefab, asi que de aca para abajo da igual cual se uso.
+            GameObject prefab = GuardarPrefabDeFbx(entrada.Key) ?? GuardarPrefab(entrada.Key, entrada.Value);
             if (prefab == null) continue;
             creados++;
 
@@ -185,6 +235,32 @@ public static class ModelosItemsBuilder
         {
             Object.DestroyImmediate(raiz);
         }
+    }
+
+    // Lo mismo que GuardarPrefab pero desde un FBX de un pack: lo mide, lo escala al alto pedido, lo
+    // deja parado en Y y lo apoya en el piso. Se regenera en cada corrida, igual que las primitivas.
+    //
+    // Devuelve null si el item no tiene FBX en la tabla, o si el pack no esta bajado en esta copia
+    // del proyecto; el que llama cae en las primitivas.
+    static GameObject GuardarPrefabDeFbx(string itemId)
+    {
+        if (!ModelosDeFbx().TryGetValue(itemId, out ModeloFbx modeloFbx)) return null;
+
+        // El armado es el compartido de ModeloUtils; lo propio de un item del piso son los dos
+        // ultimos argumentos: el eje Y (el frasco va parado) y apoyarEnElPiso, porque el origen del
+        // pickup es el punto donde el item toca el suelo -ahi lo instancia ItemPickup.MostrarModelo,
+        // y las piezas de primitivas estan medidas desde y=0 para arriba-. Sin eso el frasco
+        // quedaria enterrado hasta la mitad.
+        return ModeloUtils.GuardarPrefabDeFbx(
+            modeloFbx.Fbx,
+            CarpetaModelos + "/" + NombreDePrefab(itemId) + ".prefab",
+            NombreDePrefab(itemId),
+            modeloFbx.Alto,
+            ModeloUtils.Eje.Y,
+            modeloFbx.Textura,
+            CarpetaMateriales,
+            modeloFbx.Material,
+            apoyarEnElPiso: true);
     }
 
     // "pocion_vida" -> "Modelo_PocionVida"

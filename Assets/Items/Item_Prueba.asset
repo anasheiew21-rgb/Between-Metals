@@ -17,3 +17,5 @@ MonoBehaviour:
   description: "\xCDtem basico para probar el flujo de recoleccion e inventario."
   icon: {fileID: 0}
   consumeOnUse: 1
+  sonido: {fileID: 0}
+  modelo3D: {fileID: 424375791489114126, guid: 865b6420fb3f38140961a0984908ee51, type: 3}

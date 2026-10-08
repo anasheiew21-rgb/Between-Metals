@@ -28,15 +28,18 @@ public static class ComercianteModeloSetup
     const string NombreHijoModelo = "Modelo";
     const string EstadoIdle = "Idle";
 
-    // Los cinco que usa ComercianteGestos por defecto. El pack trae 15; el resto queda importado
-    // pero fuera del controller, para no cargarlo con estados que nunca se reproducen.
+    // Los que disparan ComercianteGestos (relleno y saludo) y DialogoComerciante (compra, venta y
+    // despedida). El pack trae 15; el resto queda importado pero fuera del controller, para no
+    // cargarlo con estados que nunca se reproducen.
     static readonly string[] GestosUsados =
     {
         "acknowledging",
         "weight_shift",
         "being_cocky",
         "thoughtful_head_shake",
-        "look_away_gesture"
+        "look_away_gesture",
+        "happy_hand_gesture",  // DialogoComerciante.gestoCompra
+        "dismissing_gesture"   // DialogoComerciante.gestoDespedida
     };
 
     // Altura del enano en metros. Los FBX de Tripo no traen una escala confiable, asi que no se
@@ -342,6 +345,13 @@ public static class ComercianteModeloSetup
         if (comerciante.GetComponent<ComercianteGestos>() == null)
         {
             Undo.AddComponent<ComercianteGestos>(comerciante);
+        }
+
+        // Las frases. Va en el comerciante y no en el modelo porque escucha a ShopManager, que vive
+        // aca; los gestos que acompanan cada frase los resuelve solo via GetComponent.
+        if (comerciante.GetComponent<DialogoComerciante>() == null)
+        {
+            Undo.AddComponent<DialogoComerciante>(comerciante);
         }
 
         Debug.Log($"{comerciante.name}: enano colocado (medido {alto:0.00} m, escala {escala:0.000}).", comerciante);
