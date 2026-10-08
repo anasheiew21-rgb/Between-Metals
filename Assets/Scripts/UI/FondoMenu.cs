@@ -15,6 +15,17 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class FondoMenu : MonoBehaviour
 {
+    /// <summary>
+    /// Como se acomoda la foto cuando su proporcion no coincide con la de la pantalla.
+    ///   Cubrir   - se agranda hasta llenarla y lo que sobra se sale por los bordes (el "cover"
+    ///              de CSS). Es el default: para una foto ambiente es lo que mejor queda.
+    ///   Contener - entra entera y quedan franjas a los costados o arriba y abajo. Es lo que hace
+    ///              falta cuando la imagen es un afiche con contenido pegado a los bordes (logo,
+    ///              sellos, tira de iconos): recortarla se comeria justo eso.
+    ///   Estirar  - se deforma hasta llenar la pantalla. Solo para fondos abstractos.
+    /// </summary>
+    public enum Encuadre { Cubrir, Contener, Estirar }
+
     [Header("Imagen")]
     [Tooltip("Foto de fondo del menu. Importala como Sprite (2D and UI). Vacio = solo el color de abajo")]
     [SerializeField] private Sprite imagenDeFondo;
@@ -23,13 +34,14 @@ public class FondoMenu : MonoBehaviour
     [SerializeField] private Color colorDeFondo = new Color(0.04f, 0.05f, 0.07f, 1f);
 
     [Header("Encuadre")]
-    [Tooltip("Recorta la foto para llenar la pantalla sin deformarla (como el 'cover' de CSS). Apagado la estira")]
-    [SerializeField] private bool mantenerProporcion = true;
+    [Tooltip("Cubrir: recorta para llenar la pantalla. Contener: entra entera y deja franjas. Estirar: la deforma")]
+    [SerializeField] private Encuadre modoEncuadre = Encuadre.Cubrir;
 
     [Tooltip("Orden de dibujado del Canvas. Negativo para quedar detras de cualquier otra UI")]
     [SerializeField] private int ordenCanvas = -100;
 
     Image imagen;
+    Image fondoColor;
     Vector2Int ultimaPantalla;
 
     /// <summary>La Image del fondo, ya creada. Null antes del primer Start.</summary>
@@ -81,6 +93,22 @@ public class FondoMenu : MonoBehaviour
         // Sin GraphicRaycaster: el fondo no recibe clics, y uno de mas se comeria los clics que
         // van a los botones IMGUI del menu.
 
+        // Capa de color a pantalla completa, debajo de la foto. Con Encuadre.Contener la foto no
+        // llega a los bordes, y sin esto las franjas mostrarian lo que limpie la camara. Asi el
+        // color de las franjas lo decide este componente y no la escena donde se use.
+        GameObject fondoGO = new GameObject("Color", typeof(RectTransform));
+        fondoGO.transform.SetParent(canvasGO.transform, false);
+
+        RectTransform rtFondo = fondoGO.GetComponent<RectTransform>();
+        rtFondo.anchorMin = Vector2.zero;
+        rtFondo.anchorMax = Vector2.one;
+        rtFondo.offsetMin = Vector2.zero;
+        rtFondo.offsetMax = Vector2.zero;
+
+        fondoColor = fondoGO.AddComponent<Image>();
+        fondoColor.color = colorDeFondo;
+        fondoColor.raycastTarget = false;
+
         GameObject imagenGO = new GameObject("Imagen", typeof(RectTransform));
         imagenGO.transform.SetParent(canvasGO.transform, false);
 
@@ -100,8 +128,14 @@ public class FondoMenu : MonoBehaviour
     {
         if (imagen == null) return;
 
+        if (fondoColor != null) fondoColor.color = colorDeFondo;
+
+        // Sin foto, la capa de color de abajo ya pinta la pantalla entera: esta se apaga para no
+        // dibujar dos veces lo mismo.
+        imagen.enabled = imagenDeFondo != null;
+
         imagen.sprite = imagenDeFondo;
-        imagen.color = imagenDeFondo != null ? Color.white : colorDeFondo;
+        imagen.color = Color.white;
         imagen.type = Image.Type.Simple;
         // Sin sprite, preserveAspect dejaria el rectangulo vacio en vez de pintarlo del color.
         imagen.preserveAspect = false;
@@ -114,17 +148,16 @@ public class FondoMenu : MonoBehaviour
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
 
-        if (imagenDeFondo != null && mantenerProporcion) EncuadrarCubriendo();
+        if (imagenDeFondo != null && modoEncuadre != Encuadre.Estirar) Encuadrar();
     }
 
-    // "Cover": el rectangulo se desborda lo justo para tapar la pantalla manteniendo la proporcion
-    // de la foto, y lo que sobra se sale por los costados. preserveAspect hace lo contrario
-    // (deja franjas vacias), que en un fondo se ve mal.
+    // Ajusta la Image a la proporcion de la foto. Se queda estirada a los 4 bordes y la diferencia
+    // se mete en offsetMin/offsetMax en vez de pasar a un tamano fijo: asi sigue atada al Canvas y
+    // un cambio de resolucion solo recalcula los offsets (lo hace Update).
     //
-    // Se queda estirado a los 4 bordes y el desborde se mete en offsetMin/offsetMax (negativos de
-    // un lado, positivos del otro) en vez de pasar a un tamano fijo: asi la Image sigue atada al
-    // Canvas y un cambio de resolucion solo recalcula el desborde (lo hace Update).
-    void EncuadrarCubriendo()
+    // Cubrir desborda (offsets negativos de un lado y positivos del otro, la foto se sale de la
+    // pantalla); Contener encoge (al reves, quedan franjas del colorDeFondo).
+    void Encuadrar()
     {
         Vector2 sprite = imagenDeFondo.rect.size;
         if (sprite.x <= 0f || sprite.y <= 0f || Screen.height <= 0) return;
@@ -136,22 +169,29 @@ public class FondoMenu : MonoBehaviour
 
         float proporcionPantalla = (float)Screen.width / Screen.height;
         float proporcionSprite = sprite.x / sprite.y;
-
         Vector2 tamanoCanvas = ((RectTransform)rt.parent).rect.size;
 
-        if (proporcionSprite > proporcionPantalla)
+        // Con Cubrir, una foto mas ancha que la pantalla se ajusta al alto y desborda a los
+        // costados; con Contener es al reves, una foto mas angosta se ajusta al alto y deja
+        // franjas a los costados. La misma comparacion sirve para los dos, invertida.
+        //
+        // La cuenta tambien es la misma: da positiva cuando hay que desbordar y negativa cuando
+        // hay que encoger, y los offsets salen bien en los dos casos sin un if extra.
+        bool ajustaPorAlto = modoEncuadre == Encuadre.Cubrir
+            ? proporcionSprite > proporcionPantalla
+            : proporcionSprite < proporcionPantalla;
+
+        if (ajustaPorAlto)
         {
-            // Foto mas ancha que la pantalla: se ajusta al alto y sobra a los costados.
-            float desborde = (tamanoCanvas.y * proporcionSprite - tamanoCanvas.x) * 0.5f;
-            rt.offsetMin = new Vector2(-desborde, 0f);
-            rt.offsetMax = new Vector2(desborde, 0f);
+            float diferencia = (tamanoCanvas.y * proporcionSprite - tamanoCanvas.x) * 0.5f;
+            rt.offsetMin = new Vector2(-diferencia, 0f);
+            rt.offsetMax = new Vector2(diferencia, 0f);
         }
         else
         {
-            // Foto mas alta: se ajusta al ancho y sobra arriba y abajo.
-            float desborde = (tamanoCanvas.x / proporcionSprite - tamanoCanvas.y) * 0.5f;
-            rt.offsetMin = new Vector2(0f, -desborde);
-            rt.offsetMax = new Vector2(0f, desborde);
+            float diferencia = (tamanoCanvas.x / proporcionSprite - tamanoCanvas.y) * 0.5f;
+            rt.offsetMin = new Vector2(0f, -diferencia);
+            rt.offsetMax = new Vector2(0f, diferencia);
         }
     }
 
