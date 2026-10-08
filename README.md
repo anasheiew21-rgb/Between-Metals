@@ -56,7 +56,8 @@ nombre que aparece en el historial no siempre coincide con el de su cuenta de Gi
 
 2. Abrir la carpeta del proyecto desde Unity Hub con la versión `6000.5.9f1`. La primera
    apertura importa los assets y puede tardar varios minutos.
-3. Abrir la escena **`Assets/Scenes/Prototype.unity`**.
+3. Abrir la escena de inicio **`Assets/Scenes/MenuPrincipal.unity`** (es la primera de
+   Build Settings) o, para entrar directamente al laberinto, **`Assets/Scenes/Prototype.unity`**.
 4. Entrar en Play Mode.
 
 No hace falta configuración manual adicional: los sistemas de interfaz y de gestión de
@@ -107,43 +108,58 @@ Editor: modifican la escena y no forman parte del juego en ejecución.
 
 ```
 Assets/
-├── Scenes/              Prototype.unity — escena jugable
+├── Scenes/              MenuPrincipal.unity — menú de inicio (escena 0 del build)
+│                        Prototype.unity — escena jugable del laberinto
 ├── Scripts/
 │   ├── Player/          PlayerController, MouseLook, PlayerInteraction,
-│   │                    PlayerStats, PlayerCombat, PasosJugador
+│   │                    PlayerStats, PlayerCombat, PasosJugador,
+│   │                    BarraRapida, EquipoJugador
 │   ├── Systems/         Enemigos (EnemyAI, EnemyHealth, EnemyAnimator…),
 │   │                    GameManager, FlashlightController, SenalAmbiental,
 │   │                    ActivadorSenalAmbiental, MonedaPickup, NPCMerchant,
-│   │                    AudioPreferences, BibliotecaDeSonidos, MusicaAmbiente,
-│   │                    GraphicsPreferences, ExitTrigger
+│   │                    ComercianteGestos, ItemComercio, PuertaInteractuable,
+│   │                    MuroSecreto, BotonSecreto, Baliza, Antorcha,
+│   │                    BotinEnemigo, AudioPreferences, BibliotecaDeSonidos,
+│   │                    MusicaAmbiente, GraphicsPreferences, ExitTrigger
 │   ├── Maze/            Barreras dinámicas y modelo del laberinto
 │   │                    (GrafoLaberinto, GestorBarreras, MapaSectores…)
 │   ├── Inventory/       Inventory, ItemData, ItemPickup, EfectosDeItem, InventoryUI
 │   ├── UI/              Menu + KeyBindings, PlayerUI (HUD), ShopManager,
-│   │                    GameOverUI, VictoryUI, PromptInteraccion, SonidosUI
+│   │                    GameOverUI, VictoryUI, PantallaFinal, PromptInteraccion,
+│   │                    AvisosUI, NavegacionUI, EstiloUI, IconosUI, FondoMenu,
+│   │                    SonidosUI
 │   ├── Navigation/      NavMeshRuntimeBuilder
 │   └── Editor/          Herramientas de autor y, en Editor/Tests/, los self-tests
 ├── Prefabs/
 │   ├── Environment/     SenalAmbiental.prefab, Cave/CaveRock_01.prefab
-│   ├── Items/           Moneda.prefab, ItemPickup_Base.prefab
+│   ├── Items/           Moneda.prefab, ItemPickup_Base.prefab, Arma.prefab,
+│   │                    Llave.prefab
 │   ├── Player/          (reservada, todavía sin prefabs)
 │   └── Enemies/         (reservada, todavía sin prefabs)
 ├── Items/               ScriptableObjects de ítems (ItemData): PocionDeVida,
-│                        RacionDeComida, Antorcha, Item_Prueba
+│                        RacionDeComida, Arma, Llave_Interior, Llave_Salida,
+│                        Item_Prueba
 ├── Audio/               Audio/Enemy/ (.ogg del enemigo) y Audio/Resources/, que
 │                        BibliotecaDeSonidos carga por nombre: MainMixer.mixer y los
-│                        .wav de UI, Music, Player, Items y Flashlight
-├── Models/              Modelos propios (entorno y linterna del jugador)
+│                        .wav de UI, Music, Player, Items, Flashlight y Maze
+├── Models/              Modelos propios: entorno (CaveRock_01), brazo y linterna
+│                        del jugador, y el enemigo araña (SpiderLowPoly)
+├── TripoModels/         Modelos 3D del enemigo generados con Tripo
+├── Modelo personajes/   Modelo riggeado del alien y su textura
 ├── Materials/           Materiales del proyecto
-├── Animacion/           Clips y controladores de animación
+├── Animacion/           Clips y controladores de animación del enemigo
+├── Animacion_Comerciante/  Clips de gestos del comerciante
+├── TextMesh Pro/        Recursos de TextMeshPro que acompañan a la UI
 ├── Settings/            Perfiles de URP (PC y Mobile)
 ├── EnvironmentPack/     Paquete de terceros (corredores sci-fi)
 ├── hedge_maze_pack/     Paquete de terceros (laberinto)
-└── Tests/               Escena y ScriptableObjects auxiliares de prueba
-                         (Tests/Inventario/InventoryTest.unity)
+├── Tests/               Escena y ScriptableObjects auxiliares de prueba
+│                        (Tests/Inventario/InventoryTest.unity)
+└── _Recovery/           Copias de escena recuperadas por el Editor (no se usan)
 
-Docs/                    Documentación técnica (Docs/Inventario.md,
-                         Docs/audio-y-modelo-enemigos.md)
+Docs/                    Documentación técnica: Inventario.md,
+                         audio-y-modelo-enemigos.md, arreglo-ataque-enemigos.md,
+                         arreglo-enemigos-flotando.md
 Tools/                   Herramientas fuera de Unity (Tools/GeneradorAudio:
                          sintetiza los .wav del juego, .NET puro)
 Packages/                Manifiesto de paquetes de Unity
