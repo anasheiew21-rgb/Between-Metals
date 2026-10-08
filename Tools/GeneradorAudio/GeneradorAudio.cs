@@ -40,6 +40,7 @@ namespace BetweenMetals.Tools
             escritos.AddRange(GenerarPasos(Path.Combine(carpetaDestino, "Player")));
             escritos.AddRange(GenerarLinterna(Path.Combine(carpetaDestino, "Flashlight")));
             escritos.AddRange(GenerarItems(Path.Combine(carpetaDestino, "Items")));
+            escritos.AddRange(GenerarLaberinto(Path.Combine(carpetaDestino, "Maze")));
 
             Console.WriteLine();
             Console.WriteLine("GeneradorAudio: " + escritos.Count + " archivo(s) escritos en " + carpetaDestino);
@@ -224,6 +225,92 @@ namespace BetweenMetals.Tools
             ClickMecanico(off, SrEfectos, 1050, 2.4, 0.0150, 7304, 0.45, 0.005);
             Normalizar(off, 0.62);
             escritos.Add(Escribir(carpeta, "linterna_off.wav", off, SrEfectos));
+
+            return escritos;
+        }
+
+        // ------------------------------------------------------------------ laberinto
+
+        // Muros de metal corriendose: lo que se oye cuando el boton secreto abre un muro.
+        //
+        // Dura 3.2s, un poco mas que los 2.5s de MuroSecreto.duracionApertura, para que el sonido
+        // no se corte antes de que el muro termine de hundirse.
+        //
+        // Se arma en cinco capas, que es como suena de verdad una masa de metal moviendose:
+        //   1. El tiron del arranque: el golpe seco de algo pesado que se despega.
+        //   2. El roce: ruido pasabanda con la amplitud modulada despacio. Es el "grrrr" continuo,
+        //      y la modulacion es lo que lo hace sonar a metal que agarra y suelta en vez de a
+        //      ruido blanco con un filtro encima.
+        //   3. Las resonancias: tres parciales desafinados entre si. Esto es lo que distingue metal
+        //      de piedra; afinados darian un acorde y sonaria a campana.
+        //   4. El retumbe grave: la cama de 45 Hz que hace sentir que lo que se movio es grande.
+        //   5. El golpe final: el muro llegando al fondo, a los 2.5s.
+        static List<string> GenerarLaberinto(string carpeta)
+        {
+            var escritos = new List<string>();
+
+            const double duracion = 3.2;
+            const double finDelRoce = 2.6;   // acompaña al muro y afloja justo antes de que pare
+            const double golpeFinal = 2.45;  // un pelo antes de que el muro llegue, no despues
+
+            float[] muro = Buffer(duracion, SrEfectos);
+
+            // 1. Tiron del arranque.
+            float[] tiron = Ruido(0.30, SrEfectos, 5101);
+            Filtrar(tiron, SrEfectos, Biquad.PasaBanda(SrEfectos, 240, 0.9));
+            Envolver(tiron, SrEfectos, Ataque(0.004, 0.075));
+            Mezclar(muro, tiron, 0.95, 0);
+            Barrido(muro, SrEfectos, 0.0, 165, 52, 0.40, Decaimiento(0.11), 0.55);
+
+            // 2. Roce continuo. La envolvente entra rapido, se sostiene y afloja sobre el final;
+            // encima va una modulacion lenta e irregular (dos senos que no son multiplos entre si,
+            // asi el patron no se repite de forma audible en los 2.6s).
+            float[] roce = Ruido(finDelRoce, SrEfectos, 5102);
+            Filtrar(roce, SrEfectos, Biquad.PasaBanda(SrEfectos, 650, 0.7));
+
+            for (int i = 0; i < roce.Length; i++)
+            {
+                double t = (double)i / SrEfectos;
+
+                double entrada = Math.Min(1.0, t / 0.12);
+                double salida = t > finDelRoce - 0.45 ? Math.Max(0.0, (finDelRoce - t) / 0.45) : 1.0;
+                double agarre = 0.70 + 0.30 * Math.Sin(2.0 * Math.PI * 7.3 * t) * Math.Sin(2.0 * Math.PI * 2.1 * t);
+
+                roce[i] = (float)(roce[i] * entrada * salida * agarre);
+            }
+
+            Mezclar(muro, roce, 0.55, (int)(0.04 * SrEfectos));
+
+            // 3. Resonancias metalicas. Las tres entran escalonadas y se van apagando: el metal
+            // suena mientras se mueve, no solo cuando lo golpean.
+            double[,] parciales =
+            {
+                // frecuencia, inicio, duracion, ganancia
+                { 196.0, 0.02, 2.40, 0.16 },
+                { 293.7, 0.18, 2.10, 0.11 },
+                { 437.0, 0.35, 1.80, 0.07 }
+            };
+
+            for (int i = 0; i < parciales.GetLength(0); i++)
+            {
+                Seno(muro, SrEfectos, parciales[i, 1], parciales[i, 0], parciales[i, 2],
+                    Ataque(0.05, 0.85), parciales[i, 3]);
+            }
+
+            // 4. Retumbe grave debajo de todo.
+            Seno(muro, SrEfectos, 0.0, 45.0, finDelRoce, Ataque(0.20, 1.40), 0.38);
+
+            // 5. Golpe final: el muro tocando fondo.
+            float[] fondo = Ruido(0.40, SrEfectos, 5103);
+            Filtrar(fondo, SrEfectos, Biquad.PasaBanda(SrEfectos, 180, 0.8));
+            Envolver(fondo, SrEfectos, Ataque(0.003, 0.11));
+            Mezclar(muro, fondo, 0.85, (int)(golpeFinal * SrEfectos));
+            Barrido(muro, SrEfectos, golpeFinal, 120, 42, 0.50, Decaimiento(0.14), 0.60);
+
+            // Mas alto que el resto de los efectos a proposito: es el aviso de que el laberinto
+            // cambio, y tiene que llegar aunque el muro este lejos del jugador.
+            Normalizar(muro, 0.88);
+            escritos.Add(Escribir(carpeta, "muro_deslizando.wav", muro, SrEfectos));
 
             return escritos;
         }

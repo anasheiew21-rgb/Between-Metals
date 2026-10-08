@@ -23,6 +23,42 @@ public class ItemPickup : MonoBehaviour, IInteractable
     private Inventory resolvedInventory;
     private bool inventorySearched;
 
+    private void Awake()
+    {
+        MostrarModelo();
+    }
+
+    /// <summary>
+    /// Pone el modelo 3D del ItemData en lugar del cubo gris del prefab base. Sin modelo asignado
+    /// no hace nada y se sigue viendo el cubo, que es el comportamiento de antes.
+    /// </summary>
+    private void MostrarModelo()
+    {
+        if (item == null || item.modelo3D == null) return;
+
+        // El MeshRenderer propio se APAGA en vez de destruirse: el cubo es tambien lo que define
+        // el BoxCollider del prefab base, que es con lo que el raycast de PlayerInteraction apunta
+        // al item. Apagandolo se va el cubo de la vista pero el objeto se sigue pudiendo señalar,
+        // y con una caja pareja para todos los items en vez de una por forma.
+        MeshRenderer propio = GetComponent<MeshRenderer>();
+        if (propio != null) propio.enabled = false;
+
+        GameObject modelo = Instantiate(item.modelo3D, transform);
+        modelo.name = "Modelo";
+        modelo.transform.localPosition = Vector3.zero;
+        modelo.transform.localRotation = Quaternion.identity;
+
+        // Los modelos estan hechos en metros de verdad (una poción mide 0,25 m), pero el prefab
+        // base tiene la raiz escalada a 0,3 para achicar el cubo. Sin esto, el modelo heredaria esa
+        // escala y se veria tres veces mas chico de lo que se diseño. Se contrarresta la escala
+        // acumulada para que el modelo quede, en el mundo, del tamaño con el que se construyo.
+        Vector3 acumulada = transform.lossyScale;
+        modelo.transform.localScale = new Vector3(
+            Mathf.Approximately(acumulada.x, 0f) ? 1f : 1f / acumulada.x,
+            Mathf.Approximately(acumulada.y, 0f) ? 1f : 1f / acumulada.y,
+            Mathf.Approximately(acumulada.z, 0f) ? 1f : 1f / acumulada.z);
+    }
+
     /// <summary>
     /// Texto del cartel de interacción. Vacío si ya se recogió o no tiene ítem.
     /// PromptInteraccion lo muestra tal cual, por eso incluye "Presiona E".

@@ -32,6 +32,9 @@ public static class BibliotecaDeSonidos
     public const string ItemGenerico = "Items/pickup_generico";
     public const string Moneda = "Items/pickup_moneda";
 
+    /// <summary>Muros de metal corriendose. Lo usa BotonSecreto cuando el laberinto cambia.</summary>
+    public const string MuroDeslizando = "Maze/muro_deslizando";
+
     // Prefijo de los sonidos por item: el archivo es "pickup_" + ItemData.itemId. Un item nuevo
     // con sonido propio es un .wav mas en Assets/Audio/Resources/Items, sin tocar codigo.
     const string PrefijoItem = "Items/pickup_";

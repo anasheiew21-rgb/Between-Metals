@@ -28,7 +28,17 @@ public class BotonSecreto : MonoBehaviour, IInteractable
     [SerializeField] private string textoSinPulsar = "Presiona E para pulsar el boton";
 
     [Tooltip("Lo que dice el cartel despues de pulsarlo (si es un boton de un solo uso).")]
-    [SerializeField] private string textoPulsado = "Algo se movio en el laberinto";
+    [SerializeField] private string textoPulsado = "El laberinto ya cambió";
+
+    [Header("Aviso de que el laberinto cambio")]
+    [Tooltip("Muestra el aviso en pantalla y suena el metal cuando el boton abre algo.")]
+    [SerializeField] private bool anunciarCambio = true;
+
+    [Tooltip("El aviso que aparece en pantalla. Sale como alerta: borde e icono en rojo.")]
+    [SerializeField] private string mensajeCambio = "Algo en el laberinto ha cambiado";
+
+    [Tooltip("Opcional. Si se deja vacio usa el sonido de muros de la BibliotecaDeSonidos.")]
+    [SerializeField] private AudioClip sonidoCambio;
 
     [Header("Feedback")]
     [Tooltip("Opcional. Suena en la posicion del boton al pulsarlo.")]
@@ -60,22 +70,35 @@ public class BotonSecreto : MonoBehaviour, IInteractable
         pulsado = true;
 
         // Los muros y las puertas ya ignoran por su cuenta la orden repetida, asi que un boton
-        // reutilizable no necesita ningun chequeo extra aca.
+        // reutilizable no necesita ningun chequeo extra aca. Se cuenta lo que realmente se abrio:
+        // un boton que no mueve nada no tiene por que anunciar que el laberinto cambio.
+        int abiertos = 0;
+
         for (int i = 0; i < muros.Length; i++)
         {
-            if (muros[i] != null) muros[i].Abrir();
+            if (muros[i] != null)
+            {
+                muros[i].Abrir();
+                abiertos++;
+            }
             else Debug.LogWarning($"BotonSecreto '{name}': hay un hueco vacio en la lista de muros.", this);
         }
 
         for (int i = 0; i < puertas.Length; i++)
         {
-            if (puertas[i] != null) puertas[i].Abrir();
+            if (puertas[i] != null)
+            {
+                puertas[i].Abrir();
+                abiertos++;
+            }
         }
 
         if (sonidoPulsar != null && Application.isPlaying)
         {
             AudioSource.PlayClipAtPoint(sonidoPulsar, transform.position);
         }
+
+        if (abiertos > 0) AnunciarCambio();
 
         HundirParteMovil();
 
@@ -87,6 +110,34 @@ public class BotonSecreto : MonoBehaviour, IInteractable
         PromptInteraccion.Instancia?.Mostrar(TextoPrompt);
 
         Debug.Log($"BotonSecreto '{name}': pulsado. Muros abiertos: {muros.Length}, puertas: {puertas.Length}.");
+    }
+
+    /// <summary>
+    /// Avisa que el laberinto se movio, por los dos canales a la vez: el sonido de los muros de
+    /// metal corriendose y un aviso en pantalla.
+    ///
+    /// El sonido va en 2D y no en la posicion del muro a proposito. Un muro puede estar a media
+    /// cuadra del boton -en el mapa actual, el boton esta a los pies del comerciante y el muro en
+    /// la celda noreste-, y un AudioSource 3D se apaga a los 20 metros: el jugador apretaria el
+    /// boton y no se enteraria de nada. Lo que hay que comunicar no es "un muro se movio ALLA",
+    /// es "el laberinto que estas recorriendo ya no es el mismo", y eso no tiene una posicion.
+    /// </summary>
+    void AnunciarCambio()
+    {
+        if (!anunciarCambio) return;
+
+        // Application.isPlaying: Reproducir2D crea su AudioSource compartido, y sin este chequeo
+        // un autotest de editor que llame a Interactuar() dejaria un GameObject suelto en la
+        // escena abierta. AvisosUI no lo necesita: ya se ignora solo si no hay instancia.
+        if (Application.isPlaying)
+        {
+            AudioClip clip = sonidoCambio != null ? sonidoCambio : BibliotecaDeSonidos.Clip(BibliotecaDeSonidos.MuroDeslizando);
+            BibliotecaDeSonidos.Reproducir2D(clip);
+        }
+
+        // Como alerta y no como aviso comun: va con el borde y el icono en rojo, que es lo que
+        // el manual de la Etapa 12 reserva para lo que el jugador no se puede perder.
+        if (!string.IsNullOrWhiteSpace(mensajeCambio)) AvisosUI.Alertar(mensajeCambio);
     }
 
     // Movimiento de una sola vez, sin animacion: es feedback de que el boton entro, no una
