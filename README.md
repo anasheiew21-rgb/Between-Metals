@@ -62,7 +62,10 @@ nombre que aparece en el historial no siempre coincide con el de su cuenta de Gi
 No hace falta configuración manual adicional: los sistemas de interfaz y de gestión de
 partida (HUD, inventario, menú, gestor de barreras, NavMesh en runtime) se auto-instalan
 al cargar la escena mediante `RuntimeInitializeOnLoadMethod`, así que no dependen de
-objetos colocados a mano en la jerarquía.
+objetos colocados a mano en la jerarquía. El audio sigue el mismo criterio: la música y
+los sonidos de pasos, ítems, linterna y botones se enganchan solos, y los clips se
+resuelven por nombre desde `Assets/Audio/Resources` (ver
+[`Docs/audio-y-modelo-enemigos.md`](Docs/audio-y-modelo-enemigos.md)).
 
 ### Controles
 
@@ -87,8 +90,8 @@ Las acciones marcadas como reasignables se pueden remapear desde el menú del ju
 
 El proyecto incluye self-tests que se ejecutan en el Editor, sin entrar en Play Mode,
 desde el menú **`Between Metals/Tests/`** (por ejemplo `Senales Ambientales`, `Monedas`,
-`Inventario`, `GameManager`, `Barreras Dinamicas (logica)`). Cada uno imprime en la
-consola un resultado por caso y un `RESULT: N passed, M failed`.
+`Inventario`, `GameManager`, `Barreras Dinamicas (logica)`, `Audio del juego`). Cada uno
+imprime en la consola un resultado por caso y un `RESULT: N passed, M failed`.
 
 También se pueden correr sin abrir el Editor, en modo headless:
 
@@ -107,16 +110,17 @@ Assets/
 ├── Scenes/              Prototype.unity — escena jugable
 ├── Scripts/
 │   ├── Player/          PlayerController, MouseLook, PlayerInteraction,
-│   │                    PlayerStats, PlayerCombat
+│   │                    PlayerStats, PlayerCombat, PasosJugador
 │   ├── Systems/         Enemigos (EnemyAI, EnemyHealth, EnemyAnimator…),
 │   │                    GameManager, FlashlightController, SenalAmbiental,
 │   │                    ActivadorSenalAmbiental, MonedaPickup, NPCMerchant,
-│   │                    AudioPreferences, GraphicsPreferences, ExitTrigger
+│   │                    AudioPreferences, BibliotecaDeSonidos, MusicaAmbiente,
+│   │                    GraphicsPreferences, ExitTrigger
 │   ├── Maze/            Barreras dinámicas y modelo del laberinto
 │   │                    (GrafoLaberinto, GestorBarreras, MapaSectores…)
 │   ├── Inventory/       Inventory, ItemData, ItemPickup, EfectosDeItem, InventoryUI
 │   ├── UI/              Menu + KeyBindings, PlayerUI (HUD), ShopManager,
-│   │                    GameOverUI, VictoryUI, PromptInteraccion
+│   │                    GameOverUI, VictoryUI, PromptInteraccion, SonidosUI
 │   ├── Navigation/      NavMeshRuntimeBuilder
 │   └── Editor/          Herramientas de autor y, en Editor/Tests/, los self-tests
 ├── Prefabs/
@@ -126,7 +130,9 @@ Assets/
 │   └── Enemies/         (reservada, todavía sin prefabs)
 ├── Items/               ScriptableObjects de ítems (ItemData): PocionDeVida,
 │                        RacionDeComida, Antorcha, Item_Prueba
-├── Audio/               Audio del proyecto, incluido Audio/Enemy/ (.ogg del enemigo)
+├── Audio/               Audio/Enemy/ (.ogg del enemigo) y Audio/Resources/, que
+│                        BibliotecaDeSonidos carga por nombre: MainMixer.mixer y los
+│                        .wav de UI, Music, Player, Items y Flashlight
 ├── Models/              Modelos propios (entorno y linterna del jugador)
 ├── Materials/           Materiales del proyecto
 ├── Animacion/           Clips y controladores de animación
@@ -136,7 +142,10 @@ Assets/
 └── Tests/               Escena y ScriptableObjects auxiliares de prueba
                          (Tests/Inventario/InventoryTest.unity)
 
-Docs/                    Documentación técnica (Docs/Inventario.md)
+Docs/                    Documentación técnica (Docs/Inventario.md,
+                         Docs/audio-y-modelo-enemigos.md)
+Tools/                   Herramientas fuera de Unity (Tools/GeneradorAudio:
+                         sintetiza los .wav del juego, .NET puro)
 Packages/                Manifiesto de paquetes de Unity
 ProjectSettings/         Configuración del proyecto
 ```
