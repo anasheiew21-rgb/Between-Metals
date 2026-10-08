@@ -3,20 +3,26 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// Barras de vida y estamina y contador de oro en pantalla, conectados a PlayerStats por eventos
-// (no sondea en Update, solo suaviza visualmente el valor que ya llego). Arma su propio Canvas por
-// codigo al arrancar: es lo unico del proyecto que usa uGUI en vez de OnGUI, porque
-// Image.FillMethod pide un Canvas real. No hace falta tocar la escena para usarlo.
+// HUD minimo del jugador (wireframe P-06): vida, estamina debajo, contador de oro, barra de acceso
+// rapido y la "mano con linterna" a la derecha. Todo conectado a PlayerStats por eventos (no sondea
+// en Update, solo suaviza visualmente el valor que ya llego).
 //
-// El oro no es una barra (no tiene maximo): es un cartelito con el numero, en el mismo amarillo
-// que ya usa el panel de la tienda para que el jugador lea el mismo dato en los dos lados.
+// Arma su propio Canvas por codigo al arrancar: es lo unico del juego que usa uGUI en vez de OnGUI,
+// porque Image.fillAmount -el relleno animado de las barras- pide un Canvas real. No hace falta
+// tocar la escena para usarlo. Los colores y la tipografia salen igual de EstiloUI, asi que el HUD
+// y los menus se ven del mismo juego aunque los dibujen dos sistemas distintos.
 //
-// Tambien dibuja la barra de acceso rapido (las casillas 1-4). La mecanica no vive aca: es de
-// BarraRapida, y esta clase solo la dibuja y se refresca por eventos, igual que con PlayerStats.
+// El oro no es una barra (no tiene maximo): es un cartelito con el numero, con la misma tarjeta y
+// el mismo blanco humo que el "N ORO" del panel de la tienda, para que el jugador lea el mismo dato
+// igual en los dos lados.
 //
-// Reparto en pantalla: vida, estamina y oro en la esquina inferior IZQUIERDA (anclaje de punto en
-// 0,0) y la barra rapida centrada abajo (anclaje 0.5,0). Las medidas estan todas en el bloque de
-// constantes de mas abajo, en pixeles de la resolucion de referencia de 1920x1080 del CanvasScaler.
+// La barra de acceso rapido (las casillas 1-4) tambien se dibuja aca. La mecanica no vive aca: es
+// de BarraRapida, y esta clase solo la dibuja y se refresca por eventos, igual que con PlayerStats.
+//
+// Reparto en pantalla, segun P-06: vida, estamina y oro en la esquina inferior IZQUIERDA (anclaje
+// de punto en 0,0), la barra rapida centrada abajo (0.5,0), la linterna en la inferior DERECHA
+// (1,0) y el centro VACIO (sin mira). Las medidas estan todas en el bloque de constantes de mas
+// abajo, en pixeles de la resolucion de referencia de 1920x1080 del CanvasScaler.
 public class PlayerUI : MonoBehaviour
 {
     [Header("Jugador")]
@@ -26,26 +32,40 @@ public class PlayerUI : MonoBehaviour
     [Tooltip("Si se deja vacio, se busca la BarraRapida de la escena al arrancar")]
     [SerializeField] private BarraRapida barraRapida;
 
+    // Los colores salen de la paleta de EstiloUI (Etapa 12), no de valores sueltos. Que significa
+    // cada uno:
+    //   - Vida: rojo sangre. Es el 10% de acento de la paleta, y le toca al dato mas critico.
+    //   - Estamina: gris metal, que es el color de todo lo secundario.
+    //   - Estamina en cero: rojo sangre, porque ahi si es una alerta (no se puede correr).
+    // El numero de las dos barras va siempre en blanco humo, que contrasta contra el rojo y contra
+    // el gris: por eso la estamina no se llena de blanco, que dejaria el texto ilegible encima.
+    // No hay amarillos ni celestes: la paleta tiene cuatro colores.
     [Header("Colores")]
-    [SerializeField] private Color colorVida = new Color(0.8f, 0.15f, 0.15f);
-    [SerializeField] private Color colorVidaBaja = new Color(1f, 0.9f, 0.1f);
-    [SerializeField] private Color colorEstamina = new Color(0.15f, 0.6f, 0.85f);
-    [SerializeField] private Color colorEstaminaAgotada = new Color(0.5f, 0.5f, 0.5f);
-    [Tooltip("Mismo amarillo que el 'Oro:' del panel de la tienda (ShopManager.oroStyle)")]
-    [SerializeField] private Color colorOro = new Color(1f, 0.85f, 0.4f);
+    [SerializeField] private Color colorVida = EstiloUI.RojoSangre;
+    [SerializeField] private Color colorEstamina = EstiloUI.GrisMetal;
+    [SerializeField] private Color colorEstaminaAgotada = EstiloUI.RojoSangre;
+    [Tooltip("Por debajo de este porcentaje de vida, el numero se pone en rojo")]
     [Range(0f, 1f)] [SerializeField] private float umbralVidaBaja = 0.3f;
     [SerializeField] private float velocidadSuavizado = 8f;
 
     [Header("Colores de la barra rapida")]
     [Tooltip("Borde de una casilla con un item que el jugador tiene")]
-    [SerializeField] private Color colorCasillaLista = new Color(0.75f, 0.75f, 0.8f, 0.9f);
+    [SerializeField] private Color colorCasillaLista = EstiloUI.BlancoHumo;
     [Tooltip("Borde de una casilla vacia, o con un item que el jugador no tiene")]
-    [SerializeField] private Color colorCasillaVacia = new Color(0.35f, 0.35f, 0.4f, 0.6f);
+    [SerializeField] private Color colorCasillaVacia = EstiloUI.GrisMetal;
     [Tooltip("Borde de la casilla del item que esta ahora mismo en la mano")]
-    [SerializeField] private Color colorCasillaEquipada = new Color(1f, 0.85f, 0.4f, 1f);
+    [SerializeField] private Color colorCasillaEquipada = EstiloUI.RojoSangre;
 
     Image rellenoVida, rellenoEstamina;
     Text textoVida, textoEstamina, textoOro;
+
+    // "Mano con linterna" de P-06: el icono y la etiqueta de la esquina inferior derecha. No tiene
+    // evento al que suscribirse (el estado vive en el Light de FlashlightController), asi que se
+    // lee en Update comparando contra el ultimo valor dibujado.
+    Image iconoLinterna;
+    Text textoLinterna;
+    FlashlightController linterna;
+    bool linternaDibujadaEncendida;
 
     // Una entrada por casilla de la barra rapida. Se guardan las piezas que cambian de estado,
     // para refrescarlas sin volver a recorrer la jerarquia.
@@ -96,6 +116,11 @@ public class PlayerUI : MonoBehaviour
         if (barraRapida == null) barraRapida = FindAnyObjectByType<BarraRapida>();
         inventario = FindAnyObjectByType<Inventory>();
         equipo = FindAnyObjectByType<EquipoJugador>();
+        linterna = FindAnyObjectByType<FlashlightController>();
+
+        // Deja lista la fuente y la paleta antes de armar el Canvas: los Text de abajo le piden
+        // EstiloUI.Fuente, que recien existe despues de Construir().
+        EstiloUI.Construir();
 
         ConstruirCanvas();
 
@@ -143,13 +168,51 @@ public class PlayerUI : MonoBehaviour
 
         if (rellenoVida != null) rellenoVida.fillAmount = vidaMostrada;
         if (rellenoEstamina != null) rellenoEstamina.fillAmount = estaminaMostrada;
+
+        ActualizarLinterna();
     }
 
     void ActualizarVida(float actual, float maximo)
     {
         rellenoObjetivoVida = maximo > 0f ? actual / maximo : 0f;
-        if (rellenoVida != null) rellenoVida.color = rellenoObjetivoVida <= umbralVidaBaja ? colorVidaBaja : colorVida;
-        if (textoVida != null) textoVida.text = Mathf.CeilToInt(actual) + " / " + Mathf.CeilToInt(maximo);
+
+        // La barra siempre es roja: el rojo es el color de la vida, no el de la alerta. Lo que
+        // avisa que queda poca es el numero, que pasa de blanco humo a rojo.
+        if (rellenoVida != null) rellenoVida.color = colorVida;
+        if (textoVida != null)
+        {
+            textoVida.text = Mathf.CeilToInt(actual) + " / " + Mathf.CeilToInt(maximo);
+            textoVida.color = rellenoObjetivoVida <= umbralVidaBaja ? EstiloUI.RojoSangre : EstiloUI.BlancoHumo;
+        }
+    }
+
+    // Prende y apaga el icono de la linterna. Se compara con lo ultimo dibujado para no reescribir
+    // el Text y el color en todos los frames.
+    void ActualizarLinterna()
+    {
+        if (iconoLinterna == null) return;
+
+        if (linterna == null)
+        {
+            linterna = FindAnyObjectByType<FlashlightController>();
+            if (linterna == null) return;
+        }
+
+        bool encendida = linterna.Encendida;
+        if (encendida == linternaDibujadaEncendida && textoLinterna != null && textoLinterna.text.Length > 0) return;
+
+        linternaDibujadaEncendida = encendida;
+
+        // Prendida: icono y etiqueta en rojo sangre, el acento del HUD. Apagada: gris metal, el
+        // color de todo lo inactivo.
+        Color color = encendida ? EstiloUI.RojoSangre : EstiloUI.GrisMetal;
+        iconoLinterna.color = color;
+
+        if (textoLinterna != null)
+        {
+            textoLinterna.text = encendida ? "ON" : "OFF";
+            textoLinterna.color = color;
+        }
     }
 
     void ActualizarEstamina(float actual, float maximo)
@@ -163,7 +226,7 @@ public class PlayerUI : MonoBehaviour
     // comprar o vender en la tienda: no hay un segundo contador que pueda quedar desincronizado.
     void ActualizarOro(int actual)
     {
-        if (textoOro != null) textoOro.text = "Oro: " + actual;
+        if (textoOro != null) textoOro.text = actual + " ORO";
     }
 
     // ---------------------------------------------------------------
@@ -180,7 +243,9 @@ public class PlayerUI : MonoBehaviour
     const float AnchoOro = 170f;
     const float SeparacionBarras = 8f;       // entre vida y estamina
     const float SeparacionOro = 14f;         // entre el borde derecho de las barras y el oro
-    const float MargenIzquierdo = 34f;       // del borde izquierdo de la pantalla a las barras
+    const float MargenIzquierdo = 34f;       // del borde izquierdo de la pantalla al icono de cada barra
+    const float LadoIconoBarra = 28f;        // el corazon y el rayo, a la izquierda de su barra
+    const float SeparacionIcono = 10f;       // entre el icono y su barra
     const float MargenInferiorBarras = 28f;  // del borde de abajo a la barra de estamina
     const int FuenteBarra = 20;
 
@@ -191,6 +256,13 @@ public class PlayerUI : MonoBehaviour
     const float LadoCasilla = 64f;
     const float SeparacionCasillas = 8f;  // entre casilla y casilla
     const float GrosorBorde = 2f;
+
+    // "Mano con linterna", en la esquina inferior DERECHA, que es donde la ubica P-06. Es la unica
+    // pieza del HUD de ese lado, asi que no puede chocar con nada.
+    const float AnchoLinterna = 150f;
+    const float AltoLinterna = 52f;
+    const float MargenDerecho = 34f;
+    const float LadoIconoLinterna = 32f;
 
     void ConstruirCanvas()
     {
@@ -214,31 +286,96 @@ public class PlayerUI : MonoBehaviour
             es.AddComponent<StandaloneInputModule>();
         }
 
-        // Dos anclajes, los dos al borde de abajo, los dos de punto (anchorMin == anchorMax):
+        // Tres anclajes, los tres al borde de abajo, los tres de punto (anchorMin == anchorMax):
         //
         //   (0, 0)   esquina inferior izquierda -> vida, estamina y oro. Quedan a una distancia
         //            fija del borde izquierdo y del de abajo, en cualquier resolucion.
         //   (0.5, 0) centro del borde inferior  -> barra rapida. Queda siempre centrada.
+        //   (1, 0)   esquina inferior derecha   -> la mano con linterna de P-06.
         //
         // Son anclajes de punto y no estirados porque estos elementos tienen un tamano propio que
         // no debe deformarse: lo que los escala con la resolucion es el CanvasScaler de arriba
         // (ScaleWithScreenSize sobre 1920x1080), no el anclaje.
+        //
+        // En el centro de la pantalla no va NADA, y es a proposito: P-06 excluye la mira central.
+        // El juego no es de apuntar, y una mira en el medio del laberinto solo le quitaria vacio a
+        // la imagen, que es de lo que vive el terror del juego.
         Vector2 anclaAbajoIzquierda = new Vector2(0f, 0f);
         Vector2 anclaAbajoCentro = new Vector2(0.5f, 0f);
+        Vector2 anclaAbajoDerecha = new Vector2(1f, 0f);
 
         CrearBarraRapida(canvas.transform, anclaAbajoCentro);
 
+        // Cada barra lleva su icono lineal a la izquierda (corazon y rayo): el numero dice cuanto
+        // queda y el icono dice de que. Las barras arrancan despues del icono, no en el margen.
+        float xBarra = MargenIzquierdo + LadoIconoBarra + SeparacionIcono;
+        float yVida = MargenInferiorBarras + AltoBarra + SeparacionBarras;
+
+        CrearIcono(canvas.transform, "IconoVida", anclaAbajoIzquierda, IconosUI.SpriteVida, colorVida,
+            new Vector2(MargenIzquierdo, yVida + (AltoBarra - LadoIconoBarra) * 0.5f));
+
         CrearBarra(canvas.transform, "BarraVida", anclaAbajoIzquierda, new Vector2(0f, 0f),
-            new Vector2(MargenIzquierdo, MargenInferiorBarras + AltoBarra + SeparacionBarras), colorVida, out rellenoVida, out textoVida);
+            new Vector2(xBarra, yVida), colorVida, out rellenoVida, out textoVida);
+
+        CrearIcono(canvas.transform, "IconoEstamina", anclaAbajoIzquierda, IconosUI.SpriteEstamina, EstiloUI.BlancoHumo,
+            new Vector2(MargenIzquierdo, MargenInferiorBarras + (AltoBarra - LadoIconoBarra) * 0.5f));
 
         CrearBarra(canvas.transform, "BarraEstamina", anclaAbajoIzquierda, new Vector2(0f, 0f),
-            new Vector2(MargenIzquierdo, MargenInferiorBarras), colorEstamina, out rellenoEstamina, out textoEstamina);
+            new Vector2(xBarra, MargenInferiorBarras), colorEstamina, out rellenoEstamina, out textoEstamina);
 
         // El oro va al costado derecho del par de barras, centrado verticalmente contra las dos.
         // Pivote en (0, 0): crece hacia la derecha, asi cambiarle el ancho no lo vuelve a mover.
         float centroDelPar = MargenInferiorBarras + (2f * AltoBarra + SeparacionBarras) * 0.5f;
         CrearEtiqueta(canvas.transform, "ContadorOro", anclaAbajoIzquierda, new Vector2(0f, 0f),
-            new Vector2(MargenIzquierdo + AnchoBarra + SeparacionOro, centroDelPar - AltoBarra * 0.5f), colorOro, out textoOro);
+            new Vector2(xBarra + AnchoBarra + SeparacionOro, centroDelPar - AltoBarra * 0.5f), EstiloUI.BlancoHumo, out textoOro);
+
+        CrearManoLinterna(canvas.transform, anclaAbajoDerecha);
+    }
+
+    // ---------------------------------------------------------------
+    // Mano con linterna (P-06)
+    // ---------------------------------------------------------------
+
+    // Tarjeta con el icono lineal de la linterna y su estado (ON/OFF), abajo a la derecha. Es un
+    // indicador, no un boton: la linterna se prende con su tecla (F por defecto), asi que no
+    // recibe clics -raycastTarget apagado en todas sus piezas, como el resto del HUD-.
+    void CrearManoLinterna(Transform padre, Vector2 ancla)
+    {
+        // Pivote en (1, 0) y posicion negativa en x: crece hacia la izquierda desde la esquina, asi
+        // cambiarle el ancho no lo despega del borde derecho.
+        GameObject bordeGO = NuevoRect("ManoLinterna", padre, ancla, ancla,
+            new Vector2(-MargenDerecho, MargenInferiorBarras), new Vector2(AnchoLinterna, AltoLinterna));
+        bordeGO.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+
+        Image borde = bordeGO.AddComponent<Image>();
+        borde.color = EstiloUI.GrisMetal;
+        borde.raycastTarget = false;
+
+        GameObject fondoGO = NuevoRect("Fondo", bordeGO.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        RectTransform rtFondo = fondoGO.GetComponent<RectTransform>();
+        rtFondo.offsetMin = new Vector2(1f, 1f);
+        rtFondo.offsetMax = new Vector2(-1f, -1f);
+        Image fondo = fondoGO.AddComponent<Image>();
+        fondo.color = EstiloUI.FondoTarjeta;
+        fondo.raycastTarget = false;
+
+        GameObject iconoGO = NuevoRect("Icono", fondoGO.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+            new Vector2(12f, 0f), new Vector2(LadoIconoLinterna, LadoIconoLinterna));
+        iconoGO.GetComponent<RectTransform>().pivot = new Vector2(0f, 0.5f);
+        iconoLinterna = iconoGO.AddComponent<Image>();
+        iconoLinterna.sprite = IconosUI.SpriteLinterna;
+        iconoLinterna.color = EstiloUI.GrisMetal;
+        iconoLinterna.preserveAspect = true;
+        iconoLinterna.raycastTarget = false;
+
+        GameObject textoGO = NuevoRect("Estado", fondoGO.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+            new Vector2(-12f, 0f), new Vector2(AnchoLinterna - LadoIconoLinterna - 36f, AltoLinterna));
+        textoGO.GetComponent<RectTransform>().pivot = new Vector2(1f, 0.5f);
+        textoLinterna = NuevoTexto(textoGO, FuenteBarra, TextAnchor.MiddleRight, EstiloUI.GrisMetal);
+        textoLinterna.fontStyle = FontStyle.Bold;
+
+        // Primer dibujado: deja el estado sincronizado sin esperar al Update.
+        ActualizarLinterna();
     }
 
     // ---------------------------------------------------------------
@@ -293,7 +430,7 @@ public class PlayerUI : MonoBehaviour
         rtFondo.offsetMin = new Vector2(GrosorBorde, GrosorBorde);
         rtFondo.offsetMax = new Vector2(-GrosorBorde, -GrosorBorde);
         Image fondo = fondoGO.AddComponent<Image>();
-        fondo.color = new Color(0f, 0f, 0f, 0.7f);
+        fondo.color = EstiloUI.FondoTarjeta;
         fondo.raycastTarget = false;
 
         // Icono: ocupa la casilla con un margen. Arranca apagado y se prende solo si el ItemData
@@ -311,7 +448,7 @@ public class PlayerUI : MonoBehaviour
         RectTransform rtNombre = nombreGO.GetComponent<RectTransform>();
         rtNombre.offsetMin = new Vector2(3f, 3f);
         rtNombre.offsetMax = new Vector2(-3f, -12f); // deja libre la franja de abajo, donde va la cantidad
-        resultado.nombre = NuevoTexto(nombreGO, 11, TextAnchor.MiddleCenter, Color.white);
+        resultado.nombre = NuevoTexto(nombreGO, 11, TextAnchor.MiddleCenter, EstiloUI.BlancoHumo);
         resultado.nombre.horizontalOverflow = HorizontalWrapMode.Wrap;
 
         // Numero de la tecla, arriba a la izquierda.
@@ -319,7 +456,7 @@ public class PlayerUI : MonoBehaviour
             new Vector2(2f, -1f), new Vector2(16f, 14f));
         RectTransform rtTecla = teclaGO.GetComponent<RectTransform>();
         rtTecla.pivot = new Vector2(0f, 1f);
-        Text tecla = NuevoTexto(teclaGO, 12, TextAnchor.UpperLeft, new Color(1f, 1f, 1f, 0.75f));
+        Text tecla = NuevoTexto(teclaGO, 12, TextAnchor.UpperLeft, EstiloUI.GrisMetal);
         tecla.text = (indice + 1).ToString();
 
         // Cantidad, abajo a la derecha.
@@ -327,7 +464,7 @@ public class PlayerUI : MonoBehaviour
             new Vector2(-3f, 1f), new Vector2(28f, 14f));
         RectTransform rtCantidad = cantidadGO.GetComponent<RectTransform>();
         rtCantidad.pivot = new Vector2(1f, 0f);
-        resultado.cantidad = NuevoTexto(cantidadGO, 12, TextAnchor.LowerRight, colorOro);
+        resultado.cantidad = NuevoTexto(cantidadGO, 12, TextAnchor.LowerRight, EstiloUI.BlancoHumo);
 
         return resultado;
     }
@@ -358,7 +495,7 @@ public class PlayerUI : MonoBehaviour
                 casilla.icono.enabled = hayIcono;
                 casilla.icono.sprite = hayIcono ? item.icon : null;
                 // En gris si el jugador no tiene el item: se ve que la casilla existe pero no sirve.
-                casilla.icono.color = disponible ? Color.white : new Color(1f, 1f, 1f, 0.35f);
+                casilla.icono.color = disponible ? EstiloUI.BlancoHumo : EstiloUI.GrisMetal;
             }
 
             if (casilla.nombre != null)
@@ -366,7 +503,7 @@ public class PlayerUI : MonoBehaviour
                 // El nombre es el respaldo del icono: mientras los ItemData no tengan sprite, es
                 // lo unico que identifica la casilla.
                 casilla.nombre.text = hayIcono || item == null ? string.Empty : item.itemName;
-                casilla.nombre.color = disponible ? Color.white : new Color(1f, 1f, 1f, 0.4f);
+                casilla.nombre.color = disponible ? EstiloUI.BlancoHumo : EstiloUI.GrisMetal;
             }
 
             if (casilla.cantidad != null)
@@ -393,10 +530,27 @@ public class PlayerUI : MonoBehaviour
         return go;
     }
 
+    // Icono lineal suelto del HUD, sin tarjeta detras: el corazon de la vida y el rayo de la
+    // estamina. No recibe clics, como todo el HUD.
+    static void CrearIcono(Transform padre, string nombre, Vector2 ancla, Sprite sprite, Color color, Vector2 posicion)
+    {
+        GameObject go = NuevoRect(nombre, padre, ancla, ancla, posicion, new Vector2(LadoIconoBarra, LadoIconoBarra));
+        go.GetComponent<RectTransform>().pivot = new Vector2(0f, 0f);
+
+        Image imagen = go.AddComponent<Image>();
+        imagen.sprite = sprite;
+        imagen.color = color;
+        imagen.preserveAspect = true;
+        imagen.raycastTarget = false;
+    }
+
+    // La fuente es la misma que usa el resto de la interfaz (Arial, la sustituta metrica de la
+    // Helvetica del manual): la resuelve EstiloUI una sola vez, y Start la pide con Construir()
+    // antes de armar el Canvas.
     static Text NuevoTexto(GameObject go, int tamano, TextAnchor alineacion, Color color)
     {
         Text texto = go.AddComponent<Text>();
-        texto.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        texto.font = EstiloUI.Fuente;
         texto.fontSize = tamano;
         texto.alignment = alineacion;
         texto.color = color;
@@ -405,83 +559,72 @@ public class PlayerUI : MonoBehaviour
         return texto;
     }
 
-    // Mismo fondo oscuro y misma tipografia que CrearBarra, pero sin relleno: el oro no tiene
-    // maximo, asi que una barra no significaria nada. Va al costado derecho de las dos barras y
-    // mas angosto porque solo lleva un numero.
+    // Misma tarjeta que CrearBarra pero sin relleno: el oro no tiene maximo, asi que una barra no
+    // significaria nada. Va al costado derecho de las dos barras y mas angosto porque solo lleva un
+    // numero.
     static void CrearEtiqueta(Transform padre, string nombre, Vector2 ancla, Vector2 pivote, Vector2 posicion, Color colorTexto, out Text texto)
     {
-        GameObject fondoGO = new GameObject(nombre + "_Fondo", typeof(RectTransform));
-        fondoGO.transform.SetParent(padre, false);
-        RectTransform rtFondo = fondoGO.GetComponent<RectTransform>();
-        rtFondo.anchorMin = ancla;
-        rtFondo.anchorMax = ancla;
-        rtFondo.pivot = pivote;
-        rtFondo.anchoredPosition = posicion;
-        rtFondo.sizeDelta = new Vector2(AnchoOro, AltoBarra);
-        Image imgFondo = fondoGO.AddComponent<Image>();
-        imgFondo.color = new Color(0f, 0f, 0f, 0.6f);
+        GameObject bordeGO = Tarjeta(nombre, padre, ancla, pivote, posicion, new Vector2(AnchoOro, AltoBarra), out Transform dentro);
 
-        GameObject textoGO = new GameObject(nombre + "_Texto", typeof(RectTransform));
-        textoGO.transform.SetParent(fondoGO.transform, false);
+        GameObject textoGO = NuevoRect(nombre + "_Texto", dentro, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         RectTransform rtTexto = textoGO.GetComponent<RectTransform>();
-        rtTexto.anchorMin = Vector2.zero;
-        rtTexto.anchorMax = Vector2.one;
         rtTexto.offsetMin = Vector2.zero;
         rtTexto.offsetMax = Vector2.zero;
-        Text txt = textoGO.AddComponent<Text>();
-        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        txt.alignment = TextAnchor.MiddleCenter;
-        txt.color = colorTexto;
-        txt.fontSize = FuenteBarra;
-        txt.fontStyle = FontStyle.Bold;
-        txt.text = "";
 
-        texto = txt;
+        texto = NuevoTexto(textoGO, FuenteBarra, TextAnchor.MiddleCenter, colorTexto);
+        texto.fontStyle = FontStyle.Bold;
+
+        _ = bordeGO;
     }
 
-    // Fondo oscuro + relleno tipo Image.FillMethod.Horizontal + texto numerico encima
+    // Tarjeta del HUD: borde de 1 px gris metal con el fondo #161616 adentro, las mismas dos capas
+    // que tienen las tarjetas de los menus. Devuelve el objeto del borde y, en 'dentro', el
+    // transform del fondo, que es donde van los hijos.
+    static GameObject Tarjeta(string nombre, Transform padre, Vector2 ancla, Vector2 pivote, Vector2 posicion, Vector2 tamano, out Transform dentro)
+    {
+        GameObject bordeGO = NuevoRect(nombre + "_Borde", padre, ancla, ancla, posicion, tamano);
+        bordeGO.GetComponent<RectTransform>().pivot = pivote;
+        Image borde = bordeGO.AddComponent<Image>();
+        borde.color = EstiloUI.GrisMetal;
+        borde.raycastTarget = false;
+
+        GameObject fondoGO = NuevoRect(nombre + "_Fondo", bordeGO.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        RectTransform rtFondo = fondoGO.GetComponent<RectTransform>();
+        rtFondo.offsetMin = new Vector2(EstiloUI.BordeTarjeta, EstiloUI.BordeTarjeta);
+        rtFondo.offsetMax = new Vector2(-EstiloUI.BordeTarjeta, -EstiloUI.BordeTarjeta);
+        Image fondo = fondoGO.AddComponent<Image>();
+        fondo.color = EstiloUI.FondoTarjeta;
+        fondo.raycastTarget = false;
+
+        dentro = fondoGO.transform;
+        return bordeGO;
+    }
+
+    // Tarjeta (borde gris + canal #161616) + relleno tipo Image.FillMethod.Horizontal + texto
+    // numerico encima. Es la misma barra que dibuja EstiloUI.Barra en las pantallas IMGUI, armada
+    // con uGUI porque el relleno animado necesita Image.fillAmount.
     static void CrearBarra(Transform padre, string nombre, Vector2 ancla, Vector2 pivote, Vector2 posicion, Color colorInicial, out Image relleno, out Text texto)
     {
-        GameObject fondoGO = new GameObject(nombre + "_Fondo", typeof(RectTransform));
-        fondoGO.transform.SetParent(padre, false);
-        RectTransform rtFondo = fondoGO.GetComponent<RectTransform>();
-        rtFondo.anchorMin = ancla;
-        rtFondo.anchorMax = ancla;
-        rtFondo.pivot = pivote;
-        rtFondo.anchoredPosition = posicion;
-        rtFondo.sizeDelta = new Vector2(AnchoBarra, AltoBarra);
-        Image imgFondo = fondoGO.AddComponent<Image>();
-        imgFondo.color = new Color(0f, 0f, 0f, 0.6f);
+        Tarjeta(nombre, padre, ancla, pivote, posicion, new Vector2(AnchoBarra, AltoBarra), out Transform dentro);
 
-        GameObject rellenoGO = new GameObject(nombre + "_Relleno", typeof(RectTransform));
-        rellenoGO.transform.SetParent(fondoGO.transform, false);
+        GameObject rellenoGO = NuevoRect(nombre + "_Relleno", dentro, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         RectTransform rtRelleno = rellenoGO.GetComponent<RectTransform>();
-        rtRelleno.anchorMin = Vector2.zero;
-        rtRelleno.anchorMax = Vector2.one;
-        rtRelleno.offsetMin = new Vector2(2f, 2f);
-        rtRelleno.offsetMax = new Vector2(-2f, -2f);
+        rtRelleno.offsetMin = new Vector2(EstiloUI.BordeTarjeta, EstiloUI.BordeTarjeta);
+        rtRelleno.offsetMax = new Vector2(-EstiloUI.BordeTarjeta, -EstiloUI.BordeTarjeta);
         Image imgRelleno = rellenoGO.AddComponent<Image>();
         imgRelleno.color = colorInicial;
         imgRelleno.type = Image.Type.Filled;
         imgRelleno.fillMethod = Image.FillMethod.Horizontal;
         imgRelleno.fillOrigin = (int)Image.OriginHorizontal.Left;
         imgRelleno.fillAmount = 1f;
+        imgRelleno.raycastTarget = false;
 
-        GameObject textoGO = new GameObject(nombre + "_Texto", typeof(RectTransform));
-        textoGO.transform.SetParent(fondoGO.transform, false);
+        GameObject textoGO = NuevoRect(nombre + "_Texto", dentro, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         RectTransform rtTexto = textoGO.GetComponent<RectTransform>();
-        rtTexto.anchorMin = Vector2.zero;
-        rtTexto.anchorMax = Vector2.one;
         rtTexto.offsetMin = Vector2.zero;
         rtTexto.offsetMax = Vector2.zero;
-        Text txt = textoGO.AddComponent<Text>();
-        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        txt.alignment = TextAnchor.MiddleCenter;
-        txt.color = Color.white;
-        txt.fontSize = FuenteBarra;
-        txt.text = "";
 
         relleno = imgRelleno;
-        texto = txt;
+        texto = NuevoTexto(textoGO, FuenteBarra, TextAnchor.MiddleCenter, EstiloUI.BlancoHumo);
     }
 }

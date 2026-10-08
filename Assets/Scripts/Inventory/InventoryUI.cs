@@ -1,13 +1,18 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Interfaz del inventario (RF06, HU-05, #16): panel con los lugares del inventario, selección,
-// uso del ítem seleccionado y aviso breve al recoger algo. La logica de que mostrar vive en
-// InventoryPanelState; esta clase traduce teclas a acciones, dibuja y, al abrir/cerrar el panel,
-// congela el juego igual que ShopManager.AbrirTienda/CerrarTienda (Time.timeScale, cursor y
-// controles de movimiento/mirada del jugador).
-// Mismo estilo que Menu, GameOverUI y PromptInteraccion: IMGUI (OnGUI) sobre una pantalla
-// virtual de 720 de alto, y se crea sola al cargar la escena.
+// Interfaz del inventario (RF06, HU-05, #16, wireframe P-05): grilla de lugares a la izquierda,
+// panel de detalle del item seleccionado a la derecha (nombre, imagen y descripcion corta) y los
+// botones USAR y CERRAR al pie, como pide la Etapa 11.
+//
+// La logica de que mostrar vive en InventoryPanelState; esta clase traduce teclas y clics a
+// acciones, dibuja con los estilos de EstiloUI y, al abrir/cerrar el panel, congela el juego igual
+// que ShopManager.AbrirTienda/CerrarTienda (Time.timeScale, cursor y controles de movimiento/mirada
+// del jugador).
+//
+// Los mensajes breves ("Recogiste X", "Usaste X") ya no se dibujan aca: se derivan a AvisosUI, que
+// es la pantalla de avisos de P-09, para que todo lo que es un aviso pasajero se vea igual venga
+// del inventario, del comerciante o de donde sea.
 public class InventoryUI : MonoBehaviour
 {
     // Teclas del inventario, configurables con HU-02. Ninguna la usa otro script del equipo.
@@ -25,14 +30,17 @@ public class InventoryUI : MonoBehaviour
     // (mismo patron que ShopManager.HayTiendaAbierta / GameOverUI.EstaMostrando).
     public static bool IsOpen { get; private set; }
 
-    // Pantalla virtual (misma que Menu/GameOverUI/PromptInteraccion)
-    const float VirtualHeight = 720f;
-    const int Columns = 5;
-    const float SlotWidth = 112f, SlotMaxHeight = 64f, Gap = 8f, Padding = 16f;
-    const float PanelTop = 120f, PanelMaxBottom = 530f;
-    const float HeaderHeight = 32f, DescriptionHeight = 60f, FooterHeight = 24f;
-    // El cartel de PromptInteraccion ocupa y = 600..650; el aviso va justo arriba.
-    const float MessageTop = 548f, MessageHeight = 40f;
+    // --- Maquetado, en px del lienzo virtual de 1280x720 de EstiloUI ---
+    const int Columnas = 5;
+    const float AnchoPanel = 880f;
+    const float AnchoDetalle = 300f;
+    const float SeparacionColumnas = 20f;
+    const float AltoCasilla = 72f;
+    const float AltoCabecera = 34f;
+    const float LadoImagen = 96f;
+    const float LadoIconoTitulo = 24f;
+    const float AltoDescripcion = 48f;   // dos lineas de cuerpo: la "descripcion corta" de P-05
+    const float AltoNota = 24f;
 
     InventoryPanelState state;
     Inventory inventory;
@@ -47,12 +55,19 @@ public class InventoryUI : MonoBehaviour
     // Textos cacheados: se rearman solo cuando cambia state.Version o la capacidad.
     GUIContent[] slotContents = new GUIContent[0];
     string countLabel = string.Empty;
-    string descriptionLabel = string.Empty;
+    string nombreSeleccionado = string.Empty;
+    string descripcionSeleccionada = string.Empty;
+    Texture imagenSeleccionada;
     string footerLabel;
     int builtVersion = -1;
     int builtCapacity = -1;
 
-    GUIStyle titleStyle, slotStyle, textStyle, countStyle, messageStyle;
+    // Ultimo mensaje derivado a AvisosUI, para no reenviarlo en todos los frames que sigue vigente.
+    string ultimoAviso = string.Empty;
+
+    // Si la pausa, el cursor y el bloqueo de controles estan puestos ahora mismo. Es lo que
+    // SincronizarEfectos compara contra el estado del panel; ver el comentario de ese metodo.
+    bool efectosAplicados;
 
     // RuntimeInitializeOnLoadMethod corre una sola vez; Reiniciar recarga la escena sin volver a
     // dispararlo, asi que hace falta reaccionar a sceneLoaded para recrear el InventoryUI que se
@@ -74,22 +89,22 @@ public class InventoryUI : MonoBehaviour
     public static void EnsureExists()
     {
         if (FindAnyObjectByType<InventoryUI>() != null) return;
-        if (FindAnyObjectByType<PlayerStats>() == null) return; // sin jugador (ej. un futuro menu de inicio), no hace falta
+        if (FindAnyObjectByType<PlayerStats>() == null) return; // sin jugador (ej. el menu de inicio), no hace falta
         new GameObject("InventoryUI").AddComponent<InventoryUI>();
     }
 
     void Awake()
     {
         state = new InventoryPanelState(null, ToggleKey.ToString(), () => Time.time);
-        footerLabel = "1-0 / rueda: seleccionar    " + UseKey + ": usar    " + ToggleKey + ": cerrar";
+        footerLabel = "1-0 o clic: seleccionar    " + UseKey + ": usar    " + ToggleKey + ": cerrar";
     }
 
     void OnDestroy()
     {
         // Por si el objeto se destruye (ej. recarga de escena) con el panel todavia abierto: sin
         // esto, Time.timeScale y los controles del jugador quedarian pisados para siempre (Time.timeScale
-        // no se resetea solo entre escenas, igual que ya maneja GameOverUI.Reintentar/Menu.Restart).
-        if (state != null && state.IsOpen) CerrarInventario();
+        // no se resetea solo entre escenas, igual que ya maneja GameOverUI/Menu).
+        if (efectosAplicados) CerrarInventario();
         state?.Dispose();
     }
 
@@ -97,23 +112,19 @@ public class InventoryUI : MonoBehaviour
     {
         ResolveInventory();
 
-        bool estabaAbierto = state.IsOpen;
-
         state.SetBlocked(Menu.IsOpen || ShopManager.HayTiendaAbierta || GameOverUI.EstaMostrando);
 
         if (state.IsBlocked || inventory == null)
         {
-            if (estabaAbierto) CerrarInventario(); // el bloqueo forzo el cierre: hay que restaurar
+            if (efectosAplicados) CerrarInventario(); // el bloqueo forzo el cierre: hay que restaurar
             return;
         }
 
+        DerivarAvisos();
+
         if (Input.GetKeyDown(ToggleKey)) state.Toggle();
 
-        if (state.IsOpen != estabaAbierto)
-        {
-            if (state.IsOpen) AbrirInventario();
-            else CerrarInventario();
-        }
+        SincronizarEfectos();
 
         if (!state.IsOpen) return;
 
@@ -129,17 +140,45 @@ public class InventoryUI : MonoBehaviour
         else if (scroll < 0f) state.Cycle(1);  // rueda hacia abajo: siguiente
     }
 
-    // Busca el inventario, lo cachea y, si desaparece, lo vuelve a buscar como mucho una vez por segundo.
-    void ResolveInventory()
+    // Lo que InventoryPanelState tiene para decir ("Recogiste X", "Usaste X") se publica en
+    // AvisosUI una sola vez por mensaje. El estado no avisa cuando cambia, asi que se compara con
+    // el ultimo publicado: mientras el texto siga siendo el mismo no se reenvia nada.
+    void DerivarAvisos()
     {
-        if (inventory != null) return;
+        string mensaje = state.GetMessage(Time.time);
 
-        if (state.Inventory is object) state.Bind(null); // el anterior fue destruido
-        if (Time.unscaledTime < nextSearchTime) return;
+        if (mensaje.Length == 0)
+        {
+            ultimoAviso = string.Empty;
+            return;
+        }
 
-        nextSearchTime = Time.unscaledTime + SearchInterval;
-        inventory = FindAnyObjectByType<Inventory>();
-        if (inventory != null) state.Bind(inventory);
+        if (mensaje == ultimoAviso) return;
+
+        ultimoAviso = mensaje;
+        AvisosUI.Mostrar(mensaje);
+    }
+
+    /// <summary>
+    /// Aplica o deshace los efectos de abrir el panel (pausa, cursor, controles) si todavia no
+    /// coinciden con el estado del panel.
+    ///
+    /// Esto se compara contra 'efectosAplicados' y NO contra lo que valia IsOpen al principio del
+    /// Update, que es lo que hacia antes: el boton CERRAR cambia el estado desde OnGUI, que corre
+    /// DESPUES de Update, asi que al frame siguiente el panel ya figuraba cerrado desde el primer
+    /// renglon y la comparacion no detectaba ningun cambio. Resultado: el juego se quedaba en pausa
+    /// con Time.timeScale en 0 y sin ningun panel abierto.
+    ///
+    /// Llevando aparte que efectos estan aplicados, da igual desde donde se abra o se cierre el
+    /// panel -la tecla en Update, un boton en OnGUI, o el bloqueo de otra pantalla-: la proxima
+    /// pasada por aca lo acomoda.
+    /// </summary>
+    void SincronizarEfectos()
+    {
+        if (state.IsOpen == efectosAplicados) return;
+
+        if (state.IsOpen) AbrirInventario();
+        else CerrarInventario();
     }
 
     // Misma logica que ShopManager.AbrirTienda/CerrarTienda: congela el juego, libera el cursor
@@ -147,6 +186,7 @@ public class InventoryUI : MonoBehaviour
     // mientras el inventario esta abierto.
     void AbrirInventario()
     {
+        efectosAplicados = true;
         IsOpen = true;
         Time.timeScale = 0f;
 
@@ -160,6 +200,7 @@ public class InventoryUI : MonoBehaviour
 
     void CerrarInventario()
     {
+        efectosAplicados = false;
         IsOpen = false;
         Time.timeScale = 1f;
 
@@ -177,72 +218,132 @@ public class InventoryUI : MonoBehaviour
         if (camaraJugador == null) camaraJugador = FindAnyObjectByType<MouseLook>();
     }
 
-    void OnGUI()
+    // Busca el inventario, lo cachea y, si desaparece, lo vuelve a buscar como mucho una vez por segundo.
+    void ResolveInventory()
     {
-        if (inventory == null || state.IsBlocked) return;
+        if (inventory != null) return;
 
-        string message = state.GetMessage(Time.time);
-        if (message.Length == 0 && !state.IsOpen) return;
+        if (state.Inventory is object) state.Bind(null); // el anterior fue destruido
+        if (Time.unscaledTime < nextSearchTime) return;
 
-        ConstruirEstilos();
-
-        float s = Screen.height / VirtualHeight;
-        GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
-        float w = Screen.width / s;
-
-        if (message.Length > 0)
-        {
-            GUI.Label(new Rect(0f, MessageTop, w, MessageHeight), message, messageStyle);
-        }
-
-        if (state.IsOpen) DrawPanel(w);
+        nextSearchTime = Time.unscaledTime + SearchInterval;
+        inventory = FindAnyObjectByType<Inventory>();
+        if (inventory != null) state.Bind(inventory);
     }
 
-    void DrawPanel(float screenWidth)
+    // ---------------------------------------------------------------
+    // Dibujo (P-05)
+    // ---------------------------------------------------------------
+
+    void OnGUI()
     {
+        if (inventory == null || state.IsBlocked || !state.IsOpen) return;
+
+        float w = EstiloUI.AbrirLienzo();
+        EstiloUI.Velo(0.85f);
+
         RebuildLabelsIfNeeded();
 
         int capacity = builtCapacity;
-        int columns = Mathf.Min(Columns, capacity);
-        int rows = (capacity + columns - 1) / columns;
+        int columnas = Mathf.Min(Columnas, capacity);
+        int filas = (capacity + columnas - 1) / columnas;
 
-        // Si la capacidad crece, los lugares se achican para no invadir el aviso ni el cartel.
-        float fixedHeight = Padding * 2f + HeaderHeight + DescriptionHeight + FooterHeight;
-        float rowSpace = PanelMaxBottom - PanelTop - fixedHeight;
-        float slotHeight = Mathf.Min(SlotMaxHeight, rowSpace / rows - Gap);
+        float anchoGrilla = AnchoPanel - EstiloUI.Padding * 2f - AnchoDetalle - SeparacionColumnas;
+        float ladoCasilla = (anchoGrilla - (columnas - 1) * EstiloUI.Separacion) / columnas;
+        float altoGrilla = filas * AltoCasilla + (filas - 1) * EstiloUI.Separacion;
 
-        float panelWidth = columns * SlotWidth + (columns - 1) * Gap + Padding * 2f;
-        float panelHeight = fixedHeight + rows * (slotHeight + Gap);
-        float x0 = (screenWidth - panelWidth) / 2f;
+        // El detalle manda sobre la altura del panel: lleva imagen, descripcion y dos botones, y
+        // con pocos items es mas alto que la grilla.
+        float altoDetalle = AltoCabecera + LadoImagen + AltoDescripcion + EstiloUI.AltoBoton * 2f + EstiloUI.Separacion * 4f;
+        float altoCuerpo = Mathf.Max(altoGrilla, altoDetalle);
+        float altoPanel = EstiloUI.Padding * 2f + AltoCabecera + 10f + altoCuerpo + 10f + AltoNota;
 
-        Color previousColor = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, 0.75f);
-        GUI.DrawTexture(new Rect(x0, PanelTop, panelWidth, panelHeight), Texture2D.whiteTexture);
-        GUI.color = previousColor;
+        Rect area = EstiloUI.AreaSegura;
+        var panel = new Rect(
+            area.x + (area.width - AnchoPanel) * 0.5f,
+            area.y + (area.height - altoPanel) * 0.5f,
+            AnchoPanel, altoPanel);
 
-        float y = PanelTop + Padding;
-        GUI.Label(new Rect(x0 + Padding, y, panelWidth - Padding * 2f, HeaderHeight), "Inventario", titleStyle);
-        GUI.Label(new Rect(x0 + Padding, y, panelWidth - Padding * 2f, HeaderHeight), countLabel, countStyle);
-        y += HeaderHeight;
+        GUI.Box(panel, GUIContent.none, EstiloUI.Tarjeta);
 
-        Color previousBackground = GUI.backgroundColor;
+        // Cabecera: titulo a la izquierda, contador a la derecha. El contador se pone rojo cuando
+        // el inventario esta lleno: es el estado que al jugador le importa ver de lejos.
+        var cabecera = new Rect(panel.x + EstiloUI.Padding, panel.y + EstiloUI.Padding, panel.width - EstiloUI.Padding * 2f, AltoCabecera);
+
+        var icono = new Rect(cabecera.x, cabecera.y + (AltoCabecera - LadoIconoTitulo) * 0.5f, LadoIconoTitulo, LadoIconoTitulo);
+        Color colorPrevio = GUI.color;
+        GUI.color = EstiloUI.BlancoHumo;
+        GUI.DrawTexture(icono, IconosUI.Inventario);
+        GUI.color = colorPrevio;
+
+        GUI.Label(new Rect(icono.xMax + 10f, cabecera.y, cabecera.width, AltoCabecera), "INVENTARIO", EstiloUI.Subtitulo);
+
+        GUI.Label(cabecera, countLabel, inventory.IsFull ? EstiloUI.DatoDerechaAlerta : EstiloUI.DatoDerecha);
+
+        float yCuerpo = cabecera.yMax + 10f;
+
+        DibujarGrilla(new Rect(cabecera.x, yCuerpo, anchoGrilla, altoGrilla), capacity, columnas, ladoCasilla);
+        DibujarDetalle(new Rect(cabecera.xMax - AnchoDetalle, yCuerpo, AnchoDetalle, altoDetalle));
+
+        GUI.Label(new Rect(cabecera.x, yCuerpo + altoCuerpo + 10f, cabecera.width, AltoNota), footerLabel, EstiloUI.Nota);
+    }
+
+    // Grilla de lugares. Cada casilla es una tarjeta clickeable; la seleccionada lleva el borde
+    // rojo de 2 px que el manual reserva para la tarjeta activa.
+    void DibujarGrilla(Rect zona, int capacity, int columnas, float ladoCasilla)
+    {
         for (int i = 0; i < capacity; i++)
         {
-            int row = i / columns, col = i % columns;
-            Rect slot = new Rect(
-                x0 + Padding + col * (SlotWidth + Gap),
-                y + row * (slotHeight + Gap),
-                SlotWidth, slotHeight);
+            int fila = i / columnas, columna = i % columnas;
+            var casilla = new Rect(
+                zona.x + columna * (ladoCasilla + EstiloUI.Separacion),
+                zona.y + fila * (AltoCasilla + EstiloUI.Separacion),
+                ladoCasilla, AltoCasilla);
 
-            GUI.backgroundColor = i == state.SelectedIndex ? new Color(1f, 0.8f, 0.2f) : previousBackground;
-            if (GUI.Button(slot, slotContents[i], slotStyle)) state.SelectSlot(i); // clic izquierdo: selecciona, igual que las teclas 1-0
+            GUIStyle estilo = i == state.SelectedIndex ? EstiloUI.CasillaActiva : EstiloUI.Casilla;
+            if (GUI.Button(casilla, slotContents[i], estilo)) state.SelectSlot(i);
         }
-        GUI.backgroundColor = previousBackground;
-        y += rows * (slotHeight + Gap);
+    }
 
-        GUI.Label(new Rect(x0 + Padding, y, panelWidth - Padding * 2f, DescriptionHeight), descriptionLabel, textStyle);
-        y += DescriptionHeight;
-        GUI.Label(new Rect(x0 + Padding, y, panelWidth - Padding * 2f, FooterHeight), footerLabel, textStyle);
+    // Panel de detalle de P-05: nombre, imagen, descripcion corta y los botones USAR y CERRAR.
+    void DibujarDetalle(Rect zona)
+    {
+        ItemData seleccionado = inventory.GetSelectedItem();
+
+        // Las piezas se apilan con una 'y' corriente, en el mismo orden en que se suman en
+        // altoDetalle (nombre, imagen, descripcion, USAR, CERRAR): si se agrega una, hay que
+        // sumarla en los dos lados.
+        float y = zona.y;
+
+        GUI.Label(new Rect(zona.x, y, zona.width, AltoCabecera),
+            seleccionado != null ? nombreSeleccionado : "SIN SELECCIÓN", EstiloUI.Subtitulo);
+        y += AltoCabecera + EstiloUI.Separacion;
+
+        // Marco de la imagen, centrado. Queda dibujado aunque el item no tenga icono todavia (hoy
+        // ninguno de los ItemData del proyecto lo tiene): asi el panel no cambia de alto ni de
+        // forma segun el item que este seleccionado.
+        var marco = new Rect(zona.x + (zona.width - LadoImagen) * 0.5f, y, LadoImagen, LadoImagen);
+        EstiloUI.Rellenar(marco, EstiloUI.Negro);
+        EstiloUI.Marco(marco, EstiloUI.GrisMetal, EstiloUI.BordeTarjeta);
+        if (imagenSeleccionada != null)
+        {
+            GUI.DrawTexture(new Rect(marco.x + 6f, marco.y + 6f, marco.width - 12f, marco.height - 12f),
+                imagenSeleccionada, ScaleMode.ScaleToFit);
+        }
+        y = marco.yMax + EstiloUI.Separacion;
+
+        // Descripcion corta: el alto da para las dos lineas de P-05 y lo que sobre se recorta.
+        GUI.Label(new Rect(zona.x, y, zona.width, AltoDescripcion), descripcionSeleccionada, EstiloUI.Cuerpo);
+        y += AltoDescripcion + EstiloUI.Separacion;
+
+        // USAR es el boton primario (la accion esperada) y se apaga sin seleccion; CERRAR siempre
+        // esta disponible, porque es la unica salida del panel con el mouse.
+        GUI.enabled = seleccionado != null;
+        if (GUI.Button(new Rect(zona.x, y, zona.width, EstiloUI.AltoBoton), "USAR", EstiloUI.BotonPrimario)) state.UseSelected(Time.time);
+        GUI.enabled = true;
+        y += EstiloUI.AltoBoton + EstiloUI.Separacion;
+
+        if (GUI.Button(new Rect(zona.x, y, zona.width, EstiloUI.AltoBoton), "CERRAR", EstiloUI.BotonSecundario)) state.Toggle();
     }
 
     void RebuildLabelsIfNeeded()
@@ -263,45 +364,21 @@ public class InventoryUI : MonoBehaviour
             {
                 // IMGUI dibuja texturas, no sprites: se usa la textura del sprite (sin recorte de atlas).
                 Texture icon = items[i].icon != null ? items[i].icon.texture : null;
-                slotContents[i] = new GUIContent(key + "  " + state.DisplayName(items[i]), icon);
+                slotContents[i] = new GUIContent(state.DisplayName(items[i]), icon);
             }
             else
             {
-                slotContents[i] = new GUIContent(key + "  vacío");
+                slotContents[i] = new GUIContent(key);
             }
         }
 
         countLabel = items.Count + "/" + capacity;
 
         ItemData selected = inventory.GetSelectedItem();
-        descriptionLabel = selected != null
-            ? state.DisplayName(selected) + ": " + selected.description
-            : "Ningún ítem seleccionado";
-    }
-
-    void ConstruirEstilos()
-    {
-        if (titleStyle != null) return;
-
-        titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-        titleStyle.normal.textColor = Color.white;
-
-        textStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.MiddleLeft, wordWrap = true, clipping = TextClipping.Clip };
-        textStyle.normal.textColor = new Color(0.85f, 0.85f, 0.85f);
-
-        countStyle = new GUIStyle(textStyle) { fontSize = 18, alignment = TextAnchor.MiddleRight };
-
-        slotStyle = new GUIStyle(GUI.skin.box)
-        {
-            fontSize = 15,
-            alignment = TextAnchor.MiddleCenter,
-            imagePosition = ImagePosition.ImageLeft,
-            wordWrap = true,
-            clipping = TextClipping.Clip
-        };
-        slotStyle.normal.textColor = Color.white;
-
-        messageStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        messageStyle.normal.textColor = new Color(1f, 0.9f, 0.6f);
+        nombreSeleccionado = selected != null ? state.DisplayName(selected).ToUpperInvariant() : string.Empty;
+        descripcionSeleccionada = selected != null
+            ? selected.description
+            : "Elegí un ítem de la grilla para ver su descripción.";
+        imagenSeleccionada = selected != null && selected.icon != null ? selected.icon.texture : null;
     }
 }

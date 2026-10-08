@@ -56,7 +56,13 @@ public class ItemPickup : MonoBehaviour, IInteractable
         Inventory inventory = ResolveInventory();
         if (inventory == null) return; // el aviso ya lo dio ResolveInventory
 
-        if (!inventory.AddItem(item)) return; // inventario lleno: el objeto queda en el mapa
+        // Inventario lleno: el objeto queda en el mapa y el jugador se entera por el aviso de P-09,
+        // que si no solo veria que apretar E no hace nada.
+        if (!inventory.AddItem(item))
+        {
+            AvisosUI.Alertar("Inventario lleno");
+            return;
+        }
 
         collected = true;
 
