@@ -113,7 +113,7 @@ public class ShopManager : MonoBehaviour
         DibujarItems();
 
         GUILayout.Space(20f);
-        if (GUILayout.Button("Cerrar", botonStyle, GUILayout.Height(44f))) CerrarTienda();
+        if (SonidosUI.BotonAtras("Cerrar", botonStyle, GUILayout.Height(44f))) CerrarTienda();
         GUILayout.EndArea();
     }
 
@@ -140,10 +140,10 @@ public class ShopManager : MonoBehaviour
                 && statsJugador != null && statsJugador.PuedePagar(item.precio)
                 && inventarioJugador != null && !inventarioJugador.IsFull;
             GUI.enabled = puedeComprar;
-            if (GUILayout.Button("Comprar", botonStyle)) Comprar(item);
+            if (SonidosUI.Boton("Comprar", botonStyle)) Comprar(item);
 
             GUI.enabled = inventarioJugador != null && inventarioJugador.HasItem(item.item);
-            if (GUILayout.Button("Vender", botonStyle)) Vender(item);
+            if (SonidosUI.Boton("Vender", botonStyle)) Vender(item);
             GUI.enabled = true;
 
             GUILayout.EndHorizontal();

@@ -235,7 +235,7 @@ public class InventoryUI : MonoBehaviour
                 SlotWidth, slotHeight);
 
             GUI.backgroundColor = i == state.SelectedIndex ? new Color(1f, 0.8f, 0.2f) : previousBackground;
-            if (GUI.Button(slot, slotContents[i], slotStyle)) state.SelectSlot(i); // clic izquierdo: selecciona, igual que las teclas 1-0
+            if (SonidosUI.Boton(slot, slotContents[i], slotStyle)) state.SelectSlot(i); // clic izquierdo: selecciona, igual que las teclas 1-0
         }
         GUI.backgroundColor = previousBackground;
         y += rows * (slotHeight + Gap);

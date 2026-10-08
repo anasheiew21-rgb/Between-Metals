@@ -85,7 +85,7 @@ public class GameOverUI : MonoBehaviour
         GUILayout.BeginArea(new Rect((w - 400f) / 2f, 260f, 400f, 220f));
         GUILayout.Label("Moriste", tituloStyle);
         GUILayout.Space(30f);
-        if (GUILayout.Button("Reintentar", botonStyle)) Reintentar();
+        if (SonidosUI.Boton("Reintentar", botonStyle)) Reintentar();
         GUILayout.EndArea();
     }
 

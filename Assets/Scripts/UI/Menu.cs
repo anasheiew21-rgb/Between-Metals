@@ -160,8 +160,18 @@ public class Menu : MonoBehaviour
         }
         else if (Input.GetKeyDown(KeyCode.Escape))
         {
-            if (!open) Open();
-            else VolverAtras();
+            // Abrir y cerrar con Esc suena igual que apretar el boton: si no, el menu se oye a
+            // medias (los botones suenan, la tecla no) y parece que el sonido falla.
+            if (!open)
+            {
+                SonidosUI.SonarClick();
+                Open();
+            }
+            else
+            {
+                SonidosUI.SonarAtras();
+                VolverAtras();
+            }
         }
 
         // Se aplica cada frame para que MouseLook no vuelva a bloquear el cursor
@@ -356,25 +366,25 @@ public class Menu : MonoBehaviour
         if (EsMenuPrincipal)
         {
             // Sin "Reiniciar": antes de empezar no hay partida que reiniciar, haria lo mismo que Jugar.
-            if (GUILayout.Button("Jugar", buttonStyle)) Jugar();
-            if (GUILayout.Button("Opciones", buttonStyle)) AbrirOpciones();
-            if (GUILayout.Button("Salir", buttonStyle)) Quit();
+            if (SonidosUI.Boton("Jugar", buttonStyle)) Jugar();
+            if (SonidosUI.Boton("Opciones", buttonStyle)) AbrirOpciones();
+            if (SonidosUI.Boton("Salir", buttonStyle)) Quit();
             return;
         }
 
-        if (GUILayout.Button(started ? "Continuar" : "Jugar", buttonStyle)) Close();
-        if (GUILayout.Button("Opciones", buttonStyle)) AbrirOpciones();
-        if (GUILayout.Button("Reiniciar", buttonStyle)) Restart();
+        if (SonidosUI.Boton(started ? "Continuar" : "Jugar", buttonStyle)) Close();
+        if (SonidosUI.Boton("Opciones", buttonStyle)) AbrirOpciones();
+        if (SonidosUI.Boton("Reiniciar", buttonStyle)) Restart();
 
         // Gris si la escena del menu todavia no existe (nadie corrio MenuPrincipalBuilder): se ve
         // que el boton esta, pero no se puede apretar para que no tire un error al vacio.
         bool hayMenuPrincipal = !string.IsNullOrWhiteSpace(escenaMenuPrincipal)
             && Application.CanStreamedLevelBeLoaded(escenaMenuPrincipal);
         GUI.enabled = hayMenuPrincipal;
-        if (GUILayout.Button("Menu principal", buttonStyle)) VolverAlMenuPrincipal();
+        if (SonidosUI.Boton("Menu principal", buttonStyle)) VolverAlMenuPrincipal();
         GUI.enabled = true;
 
-        if (GUILayout.Button("Salir", buttonStyle)) Quit();
+        if (SonidosUI.Boton("Salir", buttonStyle)) Quit();
     }
 
     // Selector de categoria: Audio/Graficos/Controles tienen cada una su propia pantalla.
@@ -383,12 +393,12 @@ public class Menu : MonoBehaviour
         GUILayout.Label("Opciones", labelStyle);
         GUILayout.Space(10f);
 
-        if (GUILayout.Button("Audio", buttonStyle)) AbrirAudio();
-        if (GUILayout.Button("Graficos", buttonStyle)) AbrirGraficos();
-        if (GUILayout.Button("Controles", buttonStyle)) AbrirControles();
+        if (SonidosUI.Boton("Audio", buttonStyle)) AbrirAudio();
+        if (SonidosUI.Boton("Graficos", buttonStyle)) AbrirGraficos();
+        if (SonidosUI.Boton("Controles", buttonStyle)) AbrirControles();
 
         GUILayout.Space(20f);
-        if (GUILayout.Button("Volver", buttonStyle)) estado = EstadoMenu.Principal;
+        if (SonidosUI.BotonAtras("Volver", buttonStyle)) estado = EstadoMenu.Principal;
     }
 
     // 3 sliders sobre AudioPreferences (Master/Music/Sfx), que ya persiste y aplica al AudioMixer
@@ -405,7 +415,7 @@ public class Menu : MonoBehaviour
         DrawVolumeSlider("Efectos", AudioPreferences.Sfx, v => AudioPreferences.Sfx = v);
 
         GUILayout.Space(20f);
-        if (GUILayout.Button("Volver", buttonStyle)) estado = EstadoMenu.Opciones;
+        if (SonidosUI.BotonAtras("Volver", buttonStyle)) estado = EstadoMenu.Opciones;
     }
 
     // El slider sigue trabajando en 0..1 (mismo rango que espera AudioPreferences/AudioMixer);
@@ -426,29 +436,29 @@ public class Menu : MonoBehaviour
 
         GUILayout.Label("Calidad", labelStyle);
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("<", buttonStyle, GUILayout.Width(60f))) GraphicsPreferences.CambiarCalidad(-1);
+        if (SonidosUI.Boton("<", buttonStyle, GUILayout.Width(60f))) GraphicsPreferences.CambiarCalidad(-1);
         GUILayout.Label(GraphicsPreferences.QualityNames[GraphicsPreferences.QualityLevel], labelStyle, GUILayout.ExpandWidth(true));
-        if (GUILayout.Button(">", buttonStyle, GUILayout.Width(60f))) GraphicsPreferences.CambiarCalidad(1);
+        if (SonidosUI.Boton(">", buttonStyle, GUILayout.Width(60f))) GraphicsPreferences.CambiarCalidad(1);
         GUILayout.EndHorizontal();
 
         GUILayout.Space(10f);
 
         GUILayout.Label("Resolucion", labelStyle);
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("<", buttonStyle, GUILayout.Width(60f)))
+        if (SonidosUI.Boton("<", buttonStyle, GUILayout.Width(60f)))
             GraphicsPreferences.CambiarResolucion(-1);
         GUILayout.Label(GraphicsPreferences.ResolutionLabel(GraphicsPreferences.ResolutionIndex), labelStyle, GUILayout.ExpandWidth(true));
-        if (GUILayout.Button(">", buttonStyle, GUILayout.Width(60f)))
+        if (SonidosUI.Boton(">", buttonStyle, GUILayout.Width(60f)))
             GraphicsPreferences.CambiarResolucion(1);
         GUILayout.EndHorizontal();
 
         GUILayout.Space(10f);
 
         string textoFullscreen = "Pantalla completa: " + (GraphicsPreferences.Fullscreen ? "Si" : "No");
-        if (GUILayout.Button(textoFullscreen, buttonStyle)) GraphicsPreferences.Fullscreen = !GraphicsPreferences.Fullscreen;
+        if (SonidosUI.Boton(textoFullscreen, buttonStyle)) GraphicsPreferences.Fullscreen = !GraphicsPreferences.Fullscreen;
 
         GUILayout.Space(20f);
-        if (GUILayout.Button("Volver", buttonStyle)) estado = EstadoMenu.Opciones;
+        if (SonidosUI.BotonAtras("Volver", buttonStyle)) estado = EstadoMenu.Opciones;
     }
 
     void DrawControls()
@@ -472,7 +482,7 @@ public class Menu : MonoBehaviour
             GUILayout.BeginHorizontal();
             GUILayout.Label(KeyBindings.Names[(int)a], labelStyle, GUILayout.Width(200f));
             string text = waiting == a ? "Pulsa una tecla..." : KeyBindings.Get(a).ToString();
-            if (GUILayout.Button(text, buttonStyle)) waiting = a;
+            if (SonidosUI.Boton(text, buttonStyle)) waiting = a;
             GUILayout.EndHorizontal();
         }
 
@@ -480,12 +490,12 @@ public class Menu : MonoBehaviour
         GUILayout.Label("Esc cancela el cambio de tecla", labelStyle);
         GUILayout.Space(10f);
 
-        if (GUILayout.Button("Restablecer teclas", buttonStyle))
+        if (SonidosUI.Boton("Restablecer teclas", buttonStyle))
         {
             KeyBindings.ResetDefaults();
             waiting = null;
         }
-        if (GUILayout.Button("Volver", buttonStyle))
+        if (SonidosUI.BotonAtras("Volver", buttonStyle))
         {
             estado = EstadoMenu.Opciones;
             waiting = null;

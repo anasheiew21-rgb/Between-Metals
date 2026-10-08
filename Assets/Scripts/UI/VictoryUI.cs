@@ -76,7 +76,7 @@ public class VictoryUI : MonoBehaviour
         GUILayout.BeginArea(new Rect((w - 400f) / 2f, 260f, 400f, 220f));
         GUILayout.Label("Victoria", tituloStyle);
         GUILayout.Space(30f);
-        if (GUILayout.Button("Jugar de nuevo", botonStyle)) JugarDeNuevo();
+        if (SonidosUI.Boton("Jugar de nuevo", botonStyle)) JugarDeNuevo();
         GUILayout.EndArea();
     }
 

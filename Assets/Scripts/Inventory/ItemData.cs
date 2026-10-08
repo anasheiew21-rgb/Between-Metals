@@ -18,6 +18,10 @@ public class ItemData : ScriptableObject
     [Tooltip("Si es verdadero, el ítem se elimina del inventario al usarlo.")]
     public bool consumeOnUse = true;
 
+    [Tooltip("Opcional. Sonido propio de este ítem (al recogerlo y al usarlo). Si se deja vacío se " +
+             "usa Assets/Audio/Resources/Items/pickup_<itemId>.wav y, si tampoco está, el genérico.")]
+    public AudioClip sonido;
+
 #if UNITY_EDITOR
     // Solo avisa: no corrige el valor, para no pisar datos del asset sin que nadie lo note.
     private void OnValidate()
