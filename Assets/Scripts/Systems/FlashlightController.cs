@@ -15,9 +15,22 @@ public class FlashlightController : MonoBehaviour
 
     private Light flashlight;
 
-    void Start()
+    /// <summary>
+    /// Verdadero si la linterna esta prendida. Lo lee el HUD (PlayerUI) para dibujar la "mano con
+    /// linterna" de P-06; el estado sigue viviendo en el Light y no en un bool aparte.
+    /// </summary>
+    public bool Encendida => flashlight != null && flashlight.enabled;
+
+    // El Light se resuelve en Awake y no en Start porque el HUD se arma en su propio Start y
+    // consulta Encendida enseguida: con el orden de Start sin garantizar, resolverlo ahi dejaba al
+    // HUD leyendo false en el primer frame.
+    void Awake()
     {
         flashlight = GetComponent<Light>();
+    }
+
+    void Start()
+    {
         SincronizarModelo();
     }
 

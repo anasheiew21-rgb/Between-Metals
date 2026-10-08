@@ -1,9 +1,18 @@
 using UnityEngine;
 
-// Panel de la tienda del comerciante: lista de items con Comprar/Vender, conectada al oro de
-// PlayerStats y al Inventory real del jugador (RF06). Comprar agrega el ItemData de ItemComercio
-// al inventario (falla sin cobrar si esta lleno); vender lo quita de ahi. El stock que le queda a
-// la tienda (ItemComercio.cantidad) es lo unico que sigue llevando esta clase.
+// Panel del comerciante (RF06, wireframe P-04): tabla de trueques fijos con las columnas DAS y
+// RECIBÍS, un boton INTERCAMBIAR por fila y SALIR al pie.
+//
+// Como se mapean los trueques sobre la economia que ya existe: cada ItemComercio sigue siendo un
+// articulo con precio y stock, y se muestra como DOS trueques, uno por sentido.
+//
+//     DAS 30 oro          RECIBÍS Poción de vida     [INTERCAMBIAR]   <- comprar
+//     DAS Poción de vida  RECIBÍS 30 oro             [INTERCAMBIAR]   <- vender
+//
+// Asi la pantalla habla el idioma del wireframe ("das / recibís") sin perder ninguna de las dos
+// operaciones que el juego ya tenia, y sin tocar la mecanica: comprar agrega el ItemData al
+// inventario y cobra el oro, vender hace lo inverso. El stock que le queda a la tienda
+// (ItemComercio.cantidad) es lo unico que sigue llevando esta clase.
 public class ShopManager : MonoBehaviour
 {
     [Header("Items en venta")]
@@ -20,7 +29,13 @@ public class ShopManager : MonoBehaviour
     // Los demas scripts (Menu, PromptInteraccion) lo consultan para no superponerse con la tienda
     public static bool HayTiendaAbierta { get; private set; }
 
-    private GUIStyle tituloStyle, filaStyle, precioStyle, botonStyle, oroStyle;
+    // --- Maquetado, en px del lienzo virtual de 1280x720 de EstiloUI ---
+    const float AnchoPanel = 760f;
+    const float AltoCabecera = 34f;
+    const float LadoIconoTitulo = 24f;
+    const float AnchoBoton = 180f;
+    const float SeparacionBoton = 10f;
+
     private int oroMostrado;
 
     void Awake()
@@ -70,7 +85,7 @@ public class ShopManager : MonoBehaviour
 
     // Refresca el texto de oro mostrado en el panel. En OnGUI cada fila ya vuelve a leer el
     // estado actual todos los frames, asi que lo unico que hace falta cachear es el oro; se llama
-    // al abrir la tienda y despues de cada Comprar/Vender para dejar la intencion explicita.
+    // al abrir la tienda y despues de cada intercambio para dejar la intencion explicita.
     void ActualizarUI()
     {
         oroMostrado = statsJugador != null ? statsJugador.Oro : 0;
@@ -89,78 +104,188 @@ public class ShopManager : MonoBehaviour
         Cursor.visible = false;
     }
 
+    // ---------------------------------------------------------------
+    // Dibujo (P-04)
+    // ---------------------------------------------------------------
+
     void OnGUI()
     {
         if (!HayTiendaAbierta) return;
 
-        ConstruirEstilos();
+        float w = EstiloUI.AbrirLienzo();
+        EstiloUI.Velo(0.85f);
 
-        // Misma pantalla virtual de 720 de alto que usa Menu, para que se vea consistente
-        float s = Screen.height / 720f;
-        GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
-        float w = Screen.width / s;
+        Rect area = EstiloUI.AreaSegura;
 
+        int totalFilas = ContarTrueques();
+
+        // Cuanto se puede dibujar sin salirse del area segura: con la cabecera, la tabla, el pie y
+        // los dos rellenos, el panel no puede pasar de 'altoDisponible'. Si la tienda tuviera mas
+        // articulos de los que entran, se muestran los que caben y una nota con los que faltan, en
+        // vez de dibujar un panel mas alto que la pantalla.
+        float altoFijo = EstiloUI.Padding * 2f + AltoCabecera + 10f + EstiloUI.AltoFila + 10f + EstiloUI.AltoBoton;
+        float altoDisponible = area.height - 80f;
+        int maxFilas = Mathf.Max(1, Mathf.FloorToInt((altoDisponible - altoFijo) / EstiloUI.AltoFila));
+        int filas = Mathf.Min(totalFilas, maxFilas);
+        bool hayOcultas = filas < totalFilas;
+
+        float altoPanel = altoFijo + filas * EstiloUI.AltoFila + (hayOcultas ? EstiloUI.AltoFila : 0f);
+        var panel = new Rect(
+            area.x + (area.width - AnchoPanel) * 0.5f,
+            area.y + (area.height - altoPanel) * 0.5f,
+            AnchoPanel, altoPanel);
+
+        GUI.Box(panel, GUIContent.none, EstiloUI.Tarjeta);
+
+        // Cabecera: titulo a la izquierda y el oro del jugador a la derecha. El oro va en blanco
+        // humo y no en el amarillo de antes: la paleta de la Etapa 12 tiene cuatro colores y el
+        // amarillo no es uno.
+        var cabecera = new Rect(panel.x + EstiloUI.Padding, panel.y + EstiloUI.Padding,
+            panel.width - EstiloUI.Padding * 2f, AltoCabecera);
+
+        var icono = new Rect(cabecera.x, cabecera.y + (AltoCabecera - LadoIconoTitulo) * 0.5f, LadoIconoTitulo, LadoIconoTitulo);
         Color colorPrevio = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, 0.8f);
-        GUI.DrawTexture(new Rect(0, 0, w, 720f), Texture2D.whiteTexture);
+        GUI.color = EstiloUI.BlancoHumo;
+        GUI.DrawTexture(icono, IconosUI.Trueque);
         GUI.color = colorPrevio;
 
-        GUILayout.BeginArea(new Rect((w - 520f) / 2f, 70f, 520f, 580f));
-        GUILayout.Label("Comerciante", tituloStyle);
-        GUILayout.Label("Oro: " + oroMostrado, oroStyle);
-        GUILayout.Space(20f);
+        GUI.Label(new Rect(icono.xMax + 10f, cabecera.y, cabecera.width, AltoCabecera), "COMERCIANTE", EstiloUI.Subtitulo);
+        GUI.Label(cabecera, oroMostrado + " ORO", EstiloUI.DatoDerecha);
 
-        DibujarItems();
+        float y = cabecera.yMax + 10f;
+        float anchoColumna = (cabecera.width - AnchoBoton - SeparacionBoton) * 0.5f;
 
-        GUILayout.Space(20f);
-        if (GUILayout.Button("Cerrar", botonStyle, GUILayout.Height(44f))) CerrarTienda();
-        GUILayout.EndArea();
+        // Header rojo de la tabla.
+        var header = new Rect(cabecera.x, y, cabecera.width, EstiloUI.AltoFila);
+        GUI.Label(header, "DAS", EstiloUI.HeaderTabla);
+        GUI.Label(new Rect(header.x + anchoColumna, header.y, anchoColumna, header.height), "RECIBÍS", EstiloUI.HeaderTabla);
+        y += EstiloUI.AltoFila;
+
+        if (totalFilas == 0)
+        {
+            var vacia = new Rect(cabecera.x, y, cabecera.width, EstiloUI.AltoFila);
+            EstiloUI.FilaTabla(vacia, 0);
+            GUI.Label(Celda(vacia), "No tiene nada para intercambiar por ahora.", EstiloUI.Nota);
+        }
+        else
+        {
+            y = DibujarTrueques(cabecera, y, anchoColumna, filas);
+
+            if (hayOcultas)
+            {
+                var nota = new Rect(cabecera.x, y, cabecera.width, EstiloUI.AltoFila);
+                EstiloUI.FilaTabla(nota, filas);
+                GUI.Label(Celda(nota), "y " + (totalFilas - filas) + " trueque(s) más…", EstiloUI.Nota);
+            }
+        }
+
+        var salir = new Rect(cabecera.x, panel.yMax - EstiloUI.Padding - EstiloUI.AltoBoton,
+            cabecera.width, EstiloUI.AltoBoton);
+        if (GUI.Button(salir, "SALIR", EstiloUI.BotonPrimario)) CerrarTienda();
     }
 
-    void DibujarItems()
+    // Dos filas por articulo: comprar y vender. Devuelve la 'y' siguiente a la ultima fila dibujada.
+    float DibujarTrueques(Rect cabecera, float y, float anchoColumna, int maxFilas)
     {
-        if (items == null || items.Length == 0)
-        {
-            GUILayout.Label("No tiene nada para vender por ahora.", filaStyle);
-            return;
-        }
+        int indice = 0;
 
         foreach (ItemComercio item in items)
         {
             if (item.item == null) continue; // entrada sin ItemData asignado: no hay nada que comerciar
 
-            GUILayout.BeginHorizontal();
-
+            string nombre = item.item.itemName;
             Texture icono = item.item.icon != null ? item.item.icon.texture : null;
-            GUILayout.Label(new GUIContent(item.item.itemName, icono), filaStyle, GUILayout.Width(180f));
-            GUILayout.Label(item.precio + " oro", precioStyle, GUILayout.Width(70f));
-            GUILayout.Label("x" + item.cantidad, precioStyle, GUILayout.Width(40f));
 
-            bool puedeComprar = item.cantidad > 0
-                && statsJugador != null && statsJugador.PuedePagar(item.precio)
-                && inventarioJugador != null && !inventarioJugador.IsFull;
-            GUI.enabled = puedeComprar;
-            if (GUILayout.Button("Comprar", botonStyle)) Comprar(item);
+            // Comprar: da oro y recibe el item. Necesita stock, oro y lugar en el inventario.
+            if (indice < maxFilas)
+            {
+                bool puede = item.cantidad > 0
+                    && statsJugador != null && statsJugador.PuedePagar(item.precio)
+                    && inventarioJugador != null && !inventarioJugador.IsFull;
 
-            GUI.enabled = inventarioJugador != null && inventarioJugador.HasItem(item.item);
-            if (GUILayout.Button("Vender", botonStyle)) Vender(item);
-            GUI.enabled = true;
+                DibujarFila(cabecera, y, indice, anchoColumna,
+                    new GUIContent(item.precio + " oro"),
+                    new GUIContent(nombre + (item.cantidad > 0 ? "  (x" + item.cantidad + ")" : "  (sin stock)"), icono),
+                    puede, () => Comprar(item));
 
-            GUILayout.EndHorizontal();
-            GUILayout.Space(4f);
+                y += EstiloUI.AltoFila;
+                indice++;
+            }
+
+            // Vender: da el item y recibe oro. Necesita tenerlo en el inventario.
+            if (indice < maxFilas)
+            {
+                bool puede = inventarioJugador != null && inventarioJugador.HasItem(item.item);
+
+                DibujarFila(cabecera, y, indice, anchoColumna,
+                    new GUIContent(nombre, icono),
+                    new GUIContent(item.precio + " oro"),
+                    puede, () => Vender(item));
+
+                y += EstiloUI.AltoFila;
+                indice++;
+            }
+
+            if (indice >= maxFilas) break;
         }
+
+        return y;
     }
+
+    void DibujarFila(Rect cabecera, float y, int indice, float anchoColumna, GUIContent das, GUIContent recibis, bool habilitado, System.Action intercambiar)
+    {
+        var fila = new Rect(cabecera.x, y, cabecera.width, EstiloUI.AltoFila);
+        EstiloUI.FilaTabla(fila, indice);
+
+        GUI.Label(new Rect(fila.x + 10f, fila.y, anchoColumna - 10f, fila.height), das, EstiloUI.Cuerpo);
+        GUI.Label(new Rect(fila.x + anchoColumna + 10f, fila.y, anchoColumna - 10f, fila.height), recibis, EstiloUI.Cuerpo);
+
+        var boton = new Rect(fila.xMax - AnchoBoton, fila.y + 3f, AnchoBoton, EstiloUI.AltoFila - 6f);
+        GUI.enabled = habilitado;
+        if (GUI.Button(boton, "INTERCAMBIAR", EstiloUI.BotonFila)) intercambiar();
+        GUI.enabled = true;
+    }
+
+    static Rect Celda(Rect fila) => new Rect(fila.x + 10f, fila.y, fila.width - 20f, fila.height);
+
+    int ContarTrueques()
+    {
+        if (items == null) return 0;
+
+        int total = 0;
+        foreach (ItemComercio item in items)
+        {
+            if (item.item != null) total += 2; // comprar y vender
+        }
+        return total;
+    }
+
+    // ---------------------------------------------------------------
+    // Operaciones
+    // ---------------------------------------------------------------
 
     void Comprar(ItemComercio item)
     {
         if (item.item == null || item.cantidad <= 0) return;
-        if (statsJugador == null || inventarioJugador == null || inventarioJugador.IsFull) return;
-        if (!statsJugador.GastarOro(item.precio)) return;
+        if (statsJugador == null || inventarioJugador == null) return;
+
+        if (inventarioJugador.IsFull)
+        {
+            AvisosUI.Alertar("Inventario lleno");
+            return;
+        }
+
+        if (!statsJugador.GastarOro(item.precio))
+        {
+            AvisosUI.Alertar("Oro insuficiente");
+            return;
+        }
 
         inventarioJugador.AddItem(item.item);
         item.cantidad--;
         Debug.Log("Comprado: " + item.item.itemName + " por " + item.precio + " oro. Quedan " + item.cantidad + " en la tienda.");
 
+        AvisosUI.Mostrar("Intercambio realizado");
         ActualizarUI();
     }
 
@@ -173,49 +298,7 @@ public class ShopManager : MonoBehaviour
         statsJugador.AgregarOro(item.precio);
         Debug.Log("Vendido: " + item.item.itemName + ". La tienda ahora tiene " + item.cantidad + ".");
 
+        AvisosUI.Mostrar("Intercambio realizado");
         ActualizarUI();
-    }
-
-    void ConstruirEstilos()
-    {
-        if (tituloStyle != null) return;
-
-        tituloStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 32,
-            alignment = TextAnchor.MiddleCenter,
-            fontStyle = FontStyle.Bold
-        };
-        tituloStyle.normal.textColor = Color.white;
-
-        filaStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 18,
-            alignment = TextAnchor.MiddleLeft,
-            imagePosition = ImagePosition.ImageLeft
-        };
-        filaStyle.normal.textColor = Color.white;
-
-        precioStyle = new GUIStyle(filaStyle)
-        {
-            alignment = TextAnchor.MiddleCenter,
-            imagePosition = ImagePosition.TextOnly
-        };
-        precioStyle.normal.textColor = new Color(1f, 0.85f, 0.4f);
-
-        botonStyle = new GUIStyle(GUI.skin.button)
-        {
-            fontSize = 16,
-            fixedHeight = 32f,
-            fixedWidth = 90f
-        };
-
-        oroStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 20,
-            alignment = TextAnchor.MiddleCenter,
-            fontStyle = FontStyle.Bold
-        };
-        oroStyle.normal.textColor = new Color(1f, 0.85f, 0.4f);
     }
 }
