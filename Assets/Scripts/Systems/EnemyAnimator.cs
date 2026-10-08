@@ -32,6 +32,21 @@ public class EnemyAnimator : MonoBehaviour
         // navegacion, la animacion se queda en el lugar. Ver EnemyAI.PrepararModelo.
         if (animator != null) animator.applyRootMotion = false;
 
+        // Sin Animator este componente no puede hacer nada: ni el blend de locomocion ni el
+        // trigger de ataque. Pasaba exactamente eso con los enemigos extra, que siguen siendo la
+        // esfera placeholder sin modelo ni Animator, y el sintoma era "el enemigo me persigue pero
+        // nunca lo veo atacar" sin una sola linea en la consola que lo explicara.
+        //
+        // No desactiva el componente ni corta nada: el dano no depende de la animacion (lo aplica
+        // EnemyAI.OnAttackHit por distancia y angulo), asi que un enemigo sin modelo sigue siendo
+        // peligroso. Solo avisa una vez que le falta la parte visual.
+        if (animator == null)
+        {
+            Debug.LogWarning($"{name}: no tiene Animator en ningun hijo, asi que no va a reproducir " +
+                "ninguna animacion (ni la de ataque). Corré Between Metals > Enemigos > " +
+                "\"Duplicar modelo del enemigo 1 en los demas\" para darle el modelo del enemigo ya armado.", this);
+        }
+
         if (enemyAI != null) enemyAI.AlAtacar += ManejarAtaque;
         if (salud != null) salud.AlMorir += ManejarMuerte;
     }
