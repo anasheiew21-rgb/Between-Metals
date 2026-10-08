@@ -12,7 +12,8 @@ public class ItemPickup : MonoBehaviour, IInteractable
     [Tooltip("Opcional. Si se deja vacío, se busca un Inventory en la escena la primera vez que hace falta.")]
     [SerializeField] private Inventory targetInventory;
 
-    [Tooltip("Opcional. Sonido que se reproduce en la posición del objeto al recogerlo.")]
+    [Tooltip("Opcional. Sonido que se reproduce en la posición del objeto al recogerlo. Si se deja " +
+             "vacío se usa el del ItemData y, si ese tampoco está, el de BibliotecaDeSonidos.")]
     [SerializeField] private AudioClip pickupSound;
 
     [Tooltip("Se invoca una vez al recoger el ítem (para objetivos, puzzles, etc.).")]
@@ -66,12 +67,26 @@ public class ItemPickup : MonoBehaviour, IInteractable
 
         collected = true;
 
-        if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
+        // Suena desde donde estaba el objeto y ruteado al grupo sfx del mixer (por eso
+        // BibliotecaDeSonidos y no AudioSource.PlayClipAtPoint, que no pasa por el mixer y el
+        // slider "Efectos" del menu no lo afectaba).
+        BibliotecaDeSonidos.ReproducirEnPunto(SonidoDeRecogida(), transform.position);
 
         onPickedUp?.Invoke();
 
         // Se desactiva en vez de destruirse, para que otros sistemas puedan seguir referenciándolo.
         gameObject.SetActive(false);
+    }
+
+    // Tres niveles, del mas especifico al mas general: lo que diga ESTA instancia en la escena,
+    // lo que diga el ItemData (vale para todas las copias de ese item) y, si no hay nada, el que
+    // le toca al itemId por convencion de nombre de archivo (ver BibliotecaDeSonidos). Siempre hay
+    // sonido: el ultimo escalon es el generico.
+    private AudioClip SonidoDeRecogida()
+    {
+        if (pickupSound != null) return pickupSound;
+        if (item != null && item.sonido != null) return item.sonido;
+        return BibliotecaDeSonidos.SonidoDeItem(item != null ? item.itemId : null);
     }
 
     // targetInventory tiene prioridad. Si no hay, se busca en la escena una sola vez y se cachea;

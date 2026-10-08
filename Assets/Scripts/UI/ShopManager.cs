@@ -181,7 +181,7 @@ public class ShopManager : MonoBehaviour
 
         var salir = new Rect(cabecera.x, panel.yMax - EstiloUI.Padding - EstiloUI.AltoBoton,
             cabecera.width, EstiloUI.AltoBoton);
-        if (GUI.Button(salir, "SALIR", EstiloUI.BotonPrimario)) CerrarTienda();
+        if (SonidosUI.BotonAtras(salir, "SALIR", EstiloUI.BotonPrimario)) CerrarTienda();
     }
 
     // Dos filas por articulo: comprar y vender. Devuelve la 'y' siguiente a la ultima fila dibujada.
@@ -242,7 +242,7 @@ public class ShopManager : MonoBehaviour
 
         var boton = new Rect(fila.xMax - AnchoBoton, fila.y + 3f, AnchoBoton, EstiloUI.AltoFila - 6f);
         GUI.enabled = habilitado;
-        if (GUI.Button(boton, "INTERCAMBIAR", EstiloUI.BotonFila)) intercambiar();
+        if (SonidosUI.Boton(boton, "INTERCAMBIAR", EstiloUI.BotonFila)) intercambiar();
         GUI.enabled = true;
     }
 

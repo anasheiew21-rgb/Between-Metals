@@ -19,7 +19,8 @@ public class MonedaPickup : MonoBehaviour, IInteractable
     [Tooltip("Opcional. Si se deja vacío, se busca un PlayerStats en la escena cuando hace falta.")]
     [SerializeField] private PlayerStats stats;
 
-    [Tooltip("Opcional. Sonido que se reproduce en la posición de la moneda al recogerla.")]
+    [Tooltip("Opcional. Sonido que se reproduce en la posición de la moneda al recogerla. Si se deja " +
+             "vacío se usa Assets/Audio/Resources/Items/pickup_moneda.wav.")]
     [SerializeField] private AudioClip sonidoRecoger;
 
     private bool recogida;
@@ -79,7 +80,13 @@ public class MonedaPickup : MonoBehaviour, IInteractable
         jugador.AgregarOro(Valor);
         recogida = true;
 
-        if (sonidoRecoger != null) AudioSource.PlayClipAtPoint(sonidoRecoger, transform.position);
+        // El fallback (Items/pickup_moneda) hace que la moneda suene sin cablear nada: BotinEnemigo
+        // instancia el prefab en tiempo de ejecucion y ahi no hay Inspector donde asignarle un clip.
+        // Pasa por BibliotecaDeSonidos y no por AudioSource.PlayClipAtPoint para que el slider
+        // "Efectos" del menu lo afecte (PlayClipAtPoint no pasa por el mixer).
+        BibliotecaDeSonidos.ReproducirEnPunto(
+            sonidoRecoger != null ? sonidoRecoger : BibliotecaDeSonidos.Clip(BibliotecaDeSonidos.Moneda),
+            transform.position);
 
         // Se desactiva en vez de destruirse, igual que ItemPickup: así otros sistemas pueden seguir
         // referenciándola (y el raycast de PlayerInteraction deja de pegarle, que es lo que hace

@@ -187,8 +187,18 @@ public class Menu : MonoBehaviour
         }
         else if (Input.GetKeyDown(KeyCode.Escape))
         {
-            if (!open) Open();
-            else VolverAtras();
+            // Abrir y cerrar con Esc suena igual que apretar el boton: si no, el menu se oye a
+            // medias (los botones suenan, la tecla no) y parece que el sonido falla.
+            if (!open)
+            {
+                SonidosUI.SonarClick();
+                Open();
+            }
+            else
+            {
+                SonidosUI.SonarAtras();
+                VolverAtras();
+            }
         }
 
         // Se aplica cada frame para que MouseLook no vuelva a bloquear el cursor
@@ -336,22 +346,22 @@ public class Menu : MonoBehaviour
 
         if (EsMenuPrincipal)
         {
-            if (GUILayout.Button("JUGAR", EstiloUI.BotonPrimario)) Jugar();
-            if (GUILayout.Button("CONFIGURACIÓN", EstiloUI.BotonSecundario)) Ir(EstadoMenu.Configuracion);
-            if (GUILayout.Button("SALIR", EstiloUI.BotonSecundario)) NavegacionUI.Salir();
+            if (SonidosUI.Boton("JUGAR", EstiloUI.BotonPrimario)) Jugar();
+            if (SonidosUI.Boton("CONFIGURACIÓN", EstiloUI.BotonSecundario)) Ir(EstadoMenu.Configuracion);
+            if (SonidosUI.Boton("SALIR", EstiloUI.BotonSecundario)) NavegacionUI.Salir();
         }
         else
         {
-            if (GUILayout.Button(started ? "CONTINUAR" : "JUGAR", EstiloUI.BotonPrimario)) Close();
-            if (GUILayout.Button("CONFIGURACIÓN", EstiloUI.BotonSecundario)) Ir(EstadoMenu.Configuracion);
+            if (SonidosUI.Boton(started ? "CONTINUAR" : "JUGAR", EstiloUI.BotonPrimario)) Close();
+            if (SonidosUI.Boton("CONFIGURACIÓN", EstiloUI.BotonSecundario)) Ir(EstadoMenu.Configuracion);
 
             // Gris si la escena del menu todavia no existe (nadie corrio MenuPrincipalBuilder): se
             // ve que el boton esta, pero no se puede apretar para que no tire un error al vacio.
             GUI.enabled = NavegacionUI.SePuedeCargar(escenaMenuPrincipal);
-            if (GUILayout.Button("REINICIAR", EstiloUI.BotonSecundario)) Reiniciar();
+            if (SonidosUI.Boton("REINICIAR", EstiloUI.BotonSecundario)) Reiniciar();
             GUI.enabled = true;
 
-            if (GUILayout.Button("SALIR", EstiloUI.BotonSecundario)) NavegacionUI.Salir();
+            if (SonidosUI.Boton("SALIR", EstiloUI.BotonSecundario)) NavegacionUI.Salir();
         }
 
         GUILayout.EndArea();
@@ -368,11 +378,11 @@ public class Menu : MonoBehaviour
     {
         GUILayout.BeginArea(Columna(area, EstiloUI.AnchoColumna, BotonesY, 340f));
 
-        if (GUILayout.Button("AUDIO", EstiloUI.BotonSecundario)) Ir(EstadoMenu.Audio);
-        if (GUILayout.Button("GRÁFICOS", EstiloUI.BotonSecundario)) Ir(EstadoMenu.Graficos);
-        if (GUILayout.Button("CONTROLES", EstiloUI.BotonSecundario)) Ir(EstadoMenu.Controles);
+        if (SonidosUI.Boton("AUDIO", EstiloUI.BotonSecundario)) Ir(EstadoMenu.Audio);
+        if (SonidosUI.Boton("GRÁFICOS", EstiloUI.BotonSecundario)) Ir(EstadoMenu.Graficos);
+        if (SonidosUI.Boton("CONTROLES", EstiloUI.BotonSecundario)) Ir(EstadoMenu.Controles);
         GUILayout.Space(EstiloUI.Separacion * 2f);
-        if (GUILayout.Button("VOLVER", EstiloUI.BotonPrimario)) Ir(EstadoMenu.Principal);
+        if (SonidosUI.BotonAtras("VOLVER", EstiloUI.BotonPrimario)) Ir(EstadoMenu.Principal);
 
         GUILayout.EndArea();
     }
@@ -477,7 +487,7 @@ public class Menu : MonoBehaviour
 
             var botonTecla = new Rect(fila.xMax - anchoTecla + 10f, fila.y + 2f, anchoTecla - 20f, AltoFilaControles - 4f);
             string texto = waiting == a ? "PULSÁ UNA TECLA…" : KeyBindings.Get(a).ToString().ToUpperInvariant();
-            if (GUI.Button(botonTecla, texto, EstiloUI.BotonFila)) waiting = a;
+            if (SonidosUI.Boton(botonTecla, texto, EstiloUI.BotonFila)) waiting = a;
 
             y += AltoFilaControles;
         }
@@ -488,14 +498,14 @@ public class Menu : MonoBehaviour
         // Dos botones al pie: restablecer es destructivo pero reversible, asi que va secundario.
         float anchoBoton = (dentro.width - EstiloUI.Separacion) * 0.5f;
         var pie = new Rect(dentro.x, panel.yMax - EstiloUI.Padding - EstiloUI.AltoBoton, anchoBoton, EstiloUI.AltoBoton);
-        if (GUI.Button(pie, "RESTABLECER TECLAS", EstiloUI.BotonSecundario))
+        if (SonidosUI.Boton(pie, "RESTABLECER TECLAS", EstiloUI.BotonSecundario))
         {
             KeyBindings.ResetDefaults();
             waiting = null;
         }
 
         pie.x += anchoBoton + EstiloUI.Separacion;
-        if (GUI.Button(pie, "VOLVER", EstiloUI.BotonPrimario)) Ir(EstadoMenu.Configuracion);
+        if (SonidosUI.BotonAtras(pie, "VOLVER", EstiloUI.BotonPrimario)) Ir(EstadoMenu.Configuracion);
     }
 
     // ---------------------------------------------------------------
@@ -530,7 +540,7 @@ public class Menu : MonoBehaviour
     {
         var r = new Rect(panel.x + EstiloUI.Padding, panel.yMax - EstiloUI.Padding - EstiloUI.AltoBoton,
             panel.width - EstiloUI.Padding * 2f, EstiloUI.AltoBoton);
-        if (GUI.Button(r, "VOLVER", EstiloUI.BotonPrimario)) Ir(destino);
+        if (SonidosUI.BotonAtras(r, "VOLVER", EstiloUI.BotonPrimario)) Ir(destino);
     }
 
     // Etiqueta + barra arrastrable + valor a la derecha. Devuelve la 'y' de la fila siguiente.
@@ -557,8 +567,8 @@ public class Menu : MonoBehaviour
         GUI.Label(new Rect(dentro.x, y, dentro.width * 0.5f, EstiloUI.AltoBoton), etiqueta, EstiloUI.Cuerpo);
 
         float xDerecha = dentro.xMax;
-        if (GUI.Button(new Rect(xDerecha - lado, y, lado, EstiloUI.AltoBoton), ">", EstiloUI.BotonSecundario)) cambiar(1);
-        if (GUI.Button(new Rect(dentro.x + dentro.width * 0.5f, y, lado, EstiloUI.AltoBoton), "<", EstiloUI.BotonSecundario)) cambiar(-1);
+        if (SonidosUI.Boton(new Rect(xDerecha - lado, y, lado, EstiloUI.AltoBoton), ">", EstiloUI.BotonSecundario)) cambiar(1);
+        if (SonidosUI.Boton(new Rect(dentro.x + dentro.width * 0.5f, y, lado, EstiloUI.AltoBoton), "<", EstiloUI.BotonSecundario)) cambiar(-1);
 
         var rValor = new Rect(dentro.x + dentro.width * 0.5f + lado, y, xDerecha - lado - (dentro.x + dentro.width * 0.5f + lado), EstiloUI.AltoBoton);
         GUI.Label(rValor, valor, EstiloUI.DatoCentrado);
