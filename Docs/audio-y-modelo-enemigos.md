@@ -261,15 +261,39 @@ Todo lo demás (audio incluido) funciona sin ningún paso manual: entra solo al 
   cerca de cero en los efectos (no hay chasquido al disparar un clip).
 - **Costura del loop de música**: salto de 0,022 contra un movimiento interno máximo de 0,034.
 
+### Self-test
+
+`Assets/Scripts/Editor/Tests/AudioJuegoSelfTest.cs` — menú
+**Between Metals > Tests > Audio del juego Self-Test** (o `-executeMethod AudioJuegoSelfTest.RunAllAndExit`
+en batch). Mismo formato que los demás autotests del proyecto: un caso `CP-AUDJ-XX`, una línea
+PASS/FAIL por caso y una línea RESULT.
+
+Se prueba lo que **sí** se puede sin dar Play, que resulta ser justo la parte frágil: que los clips
+estén donde el código los busca. Un `.wav` mal ubicado o un `itemId` que no coincide con el nombre
+de archivo **no rompe nada visible** — el juego sigue andando, solo que en silencio — y es el tipo
+de fallo que se descubre tarde.
+
+| Caso | Qué cubre |
+|---|---|
+| 01 | Los 8 clips declarados como constantes existen (caza un renombre a medias) |
+| 02–03 | Una ruta inexistente, `null` o `""` devuelven `null` sin excepción |
+| 04–05 | Hay pasos, ninguno es `null` y la numeración es contigua (un `paso_4` tras un hueco quedaría sin usar en silencio) |
+| 06–07 | `SonidoDeItem` resuelve el clip propio, ignorando mayúsculas y espacios |
+| 08–09 | Cae al genérico con un `itemId` desconocido, vacío o `null`: **siempre** hay sonido |
+| 10 | **Cada `ItemData` de `Assets/Items` tiene sonido propio**, no el genérico. Avisa cuando se agrega un ítem y nadie le dejó su `.wav` |
+| 11 | El mixer tiene los grupos `sfx` y `music` (sin ellos el audio sale al Master y los sliders no lo afectan: fallo silencioso) |
+| 12 | Los `.meta` escritos a mano quedaron aplicados: música `Streaming`, efectos `DecompressOnLoad` |
+| 13 | El loop de música sigue midiendo 48 s (el largo no es cosmético: de él depende que el loop cierre) |
+| 14 | Ningún `.wav` se importa con `normalize`, que rompería el balance hecho en el generador |
+
 ### Lo que NO se verificó
 
 - No se dio **Play**: el Editor estaba abierto y ocupado, así que no se escuchó el audio *en el
   juego* ni se midió el balance real de volúmenes contra los sonidos del enemigo que ya existían.
   Lo más probable que haya que retocar a oído es el volumen de los pasos y el de la música
   (constantes en `PasosJugador` y `MusicaAmbiente`).
-- No hay self-test nuevo al estilo de `AudioPreferencesSelfTest`. Queda como siguiente paso natural:
-  `BibliotecaDeSonidos.SonidoDeItem` (cadena de fallbacks) y `PasosJugador` (cadencia por distancia)
-  son los dos pedazos con lógica testeable sin dar Play.
+- La **cadencia** de `PasosJugador` y el **fade** de `MusicaAmbiente` viven en `Update` y necesitan
+  Play, así que quedan fuera del self-test.
 
 ---
 
@@ -286,6 +310,7 @@ Assets/Scripts/Systems/MusicaAmbiente.cs        loop de suspenso persistente
 Assets/Scripts/Player/PasosJugador.cs           pasos por distancia recorrida
 Assets/Scripts/UI/SonidosUI.cs                  botones IMGUI con sonido
 Assets/Scripts/Editor/EnemigoModeloDuplicador.cs  modelo del enemigo 1 -> 2 y 3
+Assets/Scripts/Editor/Tests/AudioJuegoSelfTest.cs 14 casos CP-AUDJ-XX
 Docs/audio-y-modelo-enemigos.md                 este documento
 ```
 
