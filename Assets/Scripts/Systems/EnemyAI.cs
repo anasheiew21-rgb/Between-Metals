@@ -79,6 +79,11 @@ public class EnemyAI : MonoBehaviour
     [Tooltip("Material del enemigo. Si se asigna, se aplica a los SkinnedMeshRenderer del modelo en Awake (antes de que EnemyHitFeedback cachee el color), asi el modelo nunca queda blanco")]
     [SerializeField] private Material enemyMaterial;
 
+    [Tooltip("Centimetros a sumar (o restar, en negativo) a la altura del enemigo sobre el piso. " +
+             "0 lo apoya sobre el punto mas bajo de su modelo, que es lo correcto; esto es para " +
+             "corregir a ojo si los bounds del modelo no coinciden con donde estan los pies")]
+    [SerializeField] private float ajusteAlturaSobreElPiso = 0f;
+
     [Header("Audio")]
     [Tooltip("Si se deja vacio se busca/crea un AudioSource en este objeto al entrar en juego")]
     [SerializeField] private AudioSource audioSource;
@@ -380,6 +385,7 @@ public class EnemyAI : MonoBehaviour
         // Unity por defecto y entrarian hasta el centro del jugador: exactamente el bug que esto
         // viene a arreglar, pero solo en dos de los tres enemigos.
         SincronizarDistanciaDeFrenado();
+        SincronizarAlturaDelAgente();
 
         rb = GetComponent<Rigidbody>();
         if (rb != null) rb.isKinematic = true;
@@ -437,6 +443,76 @@ public class EnemyAI : MonoBehaviour
         // Un pelo por debajo de la distancia de ataque, para que el frame en el que el agente da el
         // destino por alcanzado sea uno en el que el ataque ya conecta.
         agent.stoppingDistance = Mathf.Max(0.05f, DistanciaDeAtaque - 0.05f);
+    }
+
+    // Apoya al enemigo en el piso: el NavMeshAgent ubica el objeto a "superficie del NavMesh +
+    // baseOffset", asi que baseOffset es LA propiedad que decide a que altura queda.
+    //
+    // Nadie la estaba tocando, y ese era el bug de los enemigos flotando: el valor que quedaba era
+    // el que Unity deja al agregar el componente (0.5 en los enemigos extra de la escena), y el
+    // codigo sincronizaba el radio y el alto del agente con el cuerpo pero se olvidaba de la
+    // altura. Mismo patron de fallo que tenia stoppingDistance.
+    //
+    // No se pone un 0 ni un numero a mano: se mide donde termina el enemigo por abajo y se levanta
+    // exactamente eso. Asi sale bien en los dos casos que hay en la escena, que necesitan valores
+    // distintos:
+    //
+    //   - El enemigo con modelo: su pivote esta a la altura de los pies (mas o menos: en la escena
+    //     el hijo "Modelo" quedo 13 cm corrido), asi que el offset es casi 0 y lo que hace es
+    //     compensar ese desfasaje.
+    //   - Los enemigos extra, que todavia son la esfera placeholder: su pivote es el CENTRO de la
+    //     esfera, asi que hay que levantarlos su radio (0.5) o quedarian medio enterrados. Es
+    //     justo el 0.5 que ya tenian serializado, o sea que para ellos no cambia nada.
+    //
+    // Se llama desde AsegurarAgente y antes de AsegurarSobreNavMesh, para que el primer Warp ya
+    // deje al enemigo apoyado y empiece a caminar desde ahi sin un salto visible en el primer frame.
+    void SincronizarAlturaDelAgente()
+    {
+        if (agent == null) return;
+
+        if (!MedirDesfaseHastaLaBase(out float desfase)) return; // sin nada que medir, se deja como esta
+
+        agent.baseOffset = desfase + ajusteAlturaSobreElPiso;
+    }
+
+    // Cuanto hay desde el pivote del enemigo hasta su punto visible mas bajo, en metros de mundo.
+    //
+    // Se mide en mundo y relativo a transform.position (y no convirtiendo a espacio local) para no
+    // tener que pensar en la escala del objeto: el enemigo de la escena esta escalado 1.23 en Y, y
+    // una cuenta en local habria que multiplicarla por esa escala para volver a mundo.
+    //
+    // Devuelve false si el enemigo no tiene ningun Renderer: no hay nada visible que apoyar, y en
+    // ese caso es mejor no tocar el offset que ponerlo en un valor inventado.
+    bool MedirDesfaseHastaLaBase(out float desfase)
+    {
+        desfase = 0f;
+
+        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        if (renderers == null || renderers.Length == 0) return false;
+
+        bool hayAlguno = false;
+        float masBajo = 0f;
+
+        foreach (Renderer r in renderers)
+        {
+            if (r == null) continue;
+
+            // bounds es la caja en mundo, ya con la pose y la escala aplicadas. Para un
+            // SkinnedMeshRenderer puede ser un poco mas grande que la malla real, y de ahi que
+            // exista ajusteAlturaSobreElPiso para corregir los ultimos centimetros a ojo.
+            float baseDelRenderer = r.bounds.min.y;
+
+            if (!hayAlguno || baseDelRenderer < masBajo)
+            {
+                masBajo = baseDelRenderer;
+                hayAlguno = true;
+            }
+        }
+
+        if (!hayAlguno) return false;
+
+        desfase = transform.position.y - masBajo;
+        return true;
     }
 
     // Inicializacion perezosa: si el NavMesh todavia no estaba armado cuando el agente se creo,
