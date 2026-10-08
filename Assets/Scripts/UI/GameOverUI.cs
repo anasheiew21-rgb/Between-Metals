@@ -1,9 +1,10 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Pantalla de "Moriste" que aparece cuando PlayerStats.AlMorir se dispara: pausa el juego y
-// ofrece Reintentar (recarga la escena actual). Mismo estilo IMGUI que Menu.cs. Se crea sola,
-// como el resto de los menus del proyecto.
+// Pantalla de derrota (wireframe P-07) que aparece cuando PlayerStats.AlMorir se dispara: pausa el
+// juego y ofrece NUEVA PARTIDA (recarga la escena actual) y VOLVER AL MENÚ. El dibujo lo hace
+// PantallaFinal, que es la misma tarjeta que usa VictoryUI. Se crea sola, como el resto de las
+// pantallas del proyecto.
 public class GameOverUI : MonoBehaviour
 {
     // Menu la consulta para no forzar el cursor bloqueado por encima de esta pantalla: Update()
@@ -11,9 +12,11 @@ public class GameOverUI : MonoBehaviour
     // mano al cursor libre todos los frames.
     public static bool EstaMostrando { get; private set; }
 
+    [Tooltip("Escena que carga el boton VOLVER AL MENÚ")]
+    [SerializeField] private string escenaMenuPrincipal = NavegacionUI.EscenaMenuPrincipal;
+
     PlayerStats stats;
     bool mostrando;
-    GUIStyle tituloStyle, botonStyle;
 
     // Se recrea en cada carga de escena: Reiniciar recarga la escena y RuntimeInitializeOnLoadMethod corre una sola vez (#55).
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -29,7 +32,7 @@ public class GameOverUI : MonoBehaviour
     public static void EnsureExists()
     {
         if (FindAnyObjectByType<GameOverUI>() != null) return;
-        if (FindAnyObjectByType<PlayerStats>() == null) return; // sin jugador (ej. un futuro menu de inicio), no hace falta
+        if (FindAnyObjectByType<PlayerStats>() == null) return; // sin jugador (ej. el menu de inicio), no hace falta
         new GameObject("GameOverUI").AddComponent<GameOverUI>();
     }
 
@@ -60,51 +63,11 @@ public class GameOverUI : MonoBehaviour
         Cursor.visible = true;
     }
 
-    void Reintentar()
-    {
-        Time.timeScale = 1f;
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-    }
-
     void OnGUI()
     {
         if (!mostrando) return;
 
-        ConstruirEstilos();
-
-        // Misma pantalla virtual de 720 de alto que usa Menu, para que escale igual
-        float s = Screen.height / 720f;
-        GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
-        float w = Screen.width / s;
-
-        Color colorPrevio = GUI.color;
-        GUI.color = new Color(0.05f, 0f, 0f, 0.85f);
-        GUI.DrawTexture(new Rect(0, 0, w, 720f), Texture2D.whiteTexture);
-        GUI.color = colorPrevio;
-
-        GUILayout.BeginArea(new Rect((w - 400f) / 2f, 260f, 400f, 220f));
-        GUILayout.Label("Moriste", tituloStyle);
-        GUILayout.Space(30f);
-        if (SonidosUI.Boton("Reintentar", botonStyle)) Reintentar();
-        GUILayout.EndArea();
-    }
-
-    void ConstruirEstilos()
-    {
-        if (tituloStyle != null) return;
-
-        tituloStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 44,
-            alignment = TextAnchor.MiddleCenter,
-            fontStyle = FontStyle.Bold
-        };
-        tituloStyle.normal.textColor = new Color(0.9f, 0.2f, 0.2f);
-
-        botonStyle = new GUIStyle(GUI.skin.button)
-        {
-            fontSize = 24,
-            fixedHeight = 48f
-        };
+        PantallaFinal.Dibujar("Derrota", true,
+            "El laberinto se quedó con vos.", escenaMenuPrincipal, this);
     }
 }

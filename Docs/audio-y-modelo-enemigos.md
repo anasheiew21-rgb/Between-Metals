@@ -12,7 +12,7 @@ de nombres o copiado del objeto que ya está bien armado.
 
 | Pedido | Dónde quedó |
 |---|---|
-| Sonido a los botones del menú | `Assets/Scripts/UI/SonidosUI.cs` (los 29 botones IMGUI del juego) |
+| Sonido a los botones del menú | `Assets/Scripts/UI/SonidosUI.cs` (los 24 botones IMGUI del juego) |
 | Música de suspenso / terror | `Assets/Scripts/Systems/MusicaAmbiente.cs` + `Audio/Resources/Music/suspenso_loop.wav` |
 | Pasos del jugador (`Player`) | `Assets/Scripts/Player/PasosJugador.cs` + 4 variantes de paso |
 | Sonido propio por ítem | `ItemPickup`, `MonedaPickup`, `EfectosDeItem`, `ItemData.sonido` + 8 clips |
@@ -114,13 +114,17 @@ mixer** — el slider "Efectos" no los afectaba. Ahora pasan por
 
 Estas pantallas no usan Canvas: se dibujan por código en `OnGUI` y los "botones" **no existen como
 objetos** a los que engancharles un `AudioSource` con un `UnityEvent`. Un wrapper con la misma firma
-que `GUILayout.Button` es el único lugar donde meter el sonido una vez y que valga para los 29
-botones del juego:
+que `GUILayout.Button` / `GUI.Button` es el único lugar donde meter el sonido una vez y que valga
+para los 24 botones del juego:
 
 ```csharp
-if (SonidosUI.Boton("Jugar", buttonStyle)) Jugar();       // click
-if (SonidosUI.BotonAtras("Volver", buttonStyle)) ...      // sonido descendente
+if (SonidosUI.Boton("JUGAR", EstiloUI.BotonPrimario)) Jugar();          // click
+if (SonidosUI.BotonAtras(pie, "VOLVER", EstiloUI.BotonPrimario)) ...    // sonido descendente
 ```
+
+Hay cuatro sobrecargas, una por cada forma en la que el juego dibuja un botón: `GUILayout` con
+texto, y `GUI` (rectángulo calculado a mano) con texto o con `GUIContent` — esta última para las
+casillas del inventario, que llevan icono.
 
 - Suena **con el juego congelado**: el menú de pausa corre con `Time.timeScale = 0`, así que todo va
   por `Reproducir2D` y no por nada atado al tiempo de juego.
@@ -325,8 +329,7 @@ Assets/Scripts/Inventory/ItemPickup.cs          cadena de fallbacks + mixer
 Assets/Scripts/Inventory/EfectosDeItem.cs       + sonido al usar un ítem
 Assets/Scripts/Systems/MonedaPickup.cs          fallback + mixer
 Assets/Scripts/UI/Menu.cs                       botones con sonido + Esc
-Assets/Scripts/UI/GameOverUI.cs                 botón con sonido
-Assets/Scripts/UI/VictoryUI.cs                  botón con sonido
+Assets/Scripts/UI/PantallaFinal.cs              botones con sonido (Game Over / Victoria)
 Assets/Scripts/UI/ShopManager.cs                botones con sonido
 Assets/Scripts/Inventory/InventoryUI.cs         casillas con sonido
 Assets/Scripts/Editor/BuildEnemySetup.cs        + paso del duplicador
@@ -334,9 +337,31 @@ Assets/Scripts/Editor/BuildEnemySetup.cs        + paso del duplicador
 
 ---
 
-## 8. Subir a `develop`
+## 8. Merge de `develop` (PR #71)
 
-**Sin hacer todavía — a la espera de la orden.** Cuando se dé:
+Mientras este trabajo estaba en curso se mergeó a `develop` el **PR #71** (interfaces de la Etapa 11
+con la identidad visual de la Etapa 12), que reescribió por completo las cinco pantallas IMGUI que
+este trabajo toca y agregó un sistema de estilos (`EstiloUI`, `NavegacionUI`, `IconosUI`,
+`PantallaFinal`, `AvisosUI`).
+
+`origin/develop` ya está mergeado en esta rama. La resolución fue **tomar la UI nueva tal cual** en
+las cinco pantallas en conflicto y reaplicar el sonido encima, porque el conflicto era de
+posición y no de intención: la UI nueva sigue dibujando sus botones con `GUILayout.Button` /
+`GUI.Button`, así que el wrapper sigue siendo el lugar correcto. Nada del diseño de la Etapa 12 se
+revirtió.
+
+Dos consecuencias:
+
+- Los botones pasaron de 29 a **24** (varias pantallas se unificaron: `GameOverUI` y `VictoryUI`
+  ahora delegan en `PantallaFinal`, que es donde quedó el sonido de esas dos).
+- `SonidosUI` ganó las sobrecargas de `GUI.Button` **con texto**, que es la forma que usa la UI
+  nueva (antes solo cubría `GUILayout` y `GUI.Button` con `GUIContent`).
+
+`FlashlightController` e `ItemPickup`, que las dos ramas tocaron, se auto-mergearon sin conflicto.
+
+## 9. Subir a `develop`
+
+**PR abierto, sin mergear — a la espera de la orden.** El merge se puede hacer desde el PR, o a mano:
 
 ```bash
 git checkout develop && git merge --no-ff feature/audio-y-modelo-enemigos && git push origin develop

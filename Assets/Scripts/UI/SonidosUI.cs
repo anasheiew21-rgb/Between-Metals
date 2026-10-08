@@ -60,18 +60,38 @@ public static class SonidosUI
     }
 
     /// <summary>
-    /// Igual que GUI.Button (posicion absoluta), con sonido. La usa InventoryUI, que dibuja sus
-    /// casillas en una grilla calculada a mano y no con GUILayout.
+    /// Igual que GUI.Button (posicion absoluta), con sonido. Es la forma que usan las pantallas que
+    /// calculan sus rectangulos a mano en vez de apilar con GUILayout: Menu, PantallaFinal,
+    /// ShopManager e InventoryUI.
     /// </summary>
+    public static bool Boton(Rect rect, string texto, GUIStyle estilo)
+    {
+        return BotonAbsoluto(rect, new GUIContent(texto), estilo, BibliotecaDeSonidos.BotonClick);
+    }
+
+    /// <summary>Sobrecarga con GUIContent, para los botones que llevan icono (las casillas del inventario).</summary>
     public static bool Boton(Rect rect, GUIContent contenido, GUIStyle estilo)
+    {
+        return BotonAbsoluto(rect, contenido, estilo, BibliotecaDeSonidos.BotonClick);
+    }
+
+    /// <summary>Version "volver/cerrar" de GUI.Button, con el sonido descendente.</summary>
+    public static bool BotonAtras(Rect rect, string texto, GUIStyle estilo)
+    {
+        return BotonAbsoluto(rect, new GUIContent(texto), estilo, BibliotecaDeSonidos.BotonAtras);
+    }
+
+    static bool BotonAbsoluto(Rect rect, GUIContent contenido, GUIStyle estilo, string sonido)
     {
         bool apretado = estilo != null
             ? GUI.Button(rect, contenido, estilo)
             : GUI.Button(rect, contenido);
 
+        // Aca el rect llega dado, asi que no hace falta el detour por GUILayoutUtility ni esperar
+        // a Repaint para conocerlo; RevisarHover igual descarta los eventos que no son Repaint.
         RevisarHover(rect);
 
-        if (apretado) Reproducir(BibliotecaDeSonidos.BotonClick, VolumenClick);
+        if (apretado) Reproducir(sonido, VolumenClick);
         return apretado;
     }
 
