@@ -159,7 +159,7 @@ Assets/
 
 Docs/                    Documentación técnica: Inventario.md,
                          audio-y-modelo-enemigos.md, arreglo-ataque-enemigos.md,
-                         arreglo-enemigos-flotando.md
+                         arreglo-enemigos-flotando.md, pre-alpha-01.md
 Tools/                   Herramientas fuera de Unity (Tools/GeneradorAudio:
                          sintetiza los .wav del juego, .NET puro)
 Packages/                Manifiesto de paquetes de Unity
