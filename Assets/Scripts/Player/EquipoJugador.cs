@@ -103,6 +103,15 @@ public class EquipoJugador : MonoBehaviour
         ? armaInstanciada.GetComponent<Ballesta>()
         : null;
 
+    /// <summary>
+    /// El componente que ataca con arco, si lo que hay en la mano es la espada (daga). null en
+    /// cualquier otro caso. Por aca rutea PlayerCombat el golpe cuerpo a cuerpo armado, mismo patron
+    /// que usa con Ballesta para el arma a distancia.
+    /// </summary>
+    public Espada Espada => ArmaEquipada && armaInstanciada != null
+        ? armaInstanciada.GetComponent<Espada>()
+        : null;
+
     /// <summary>Objeto del arma en la mano, o null si no hay ninguna. Lo usan las pruebas.</summary>
     public GameObject ArmaInstanciada => armaInstanciada;
 
@@ -190,13 +199,17 @@ public class EquipoJugador : MonoBehaviour
         armaInstanciada.transform.localPosition = esBallesta ? posicionBallesta : posicionEnMano;
         armaInstanciada.transform.localRotation = Quaternion.Euler(esBallesta ? rotacionBallesta : rotacionEnMano);
 
-        // El componente que dispara se autoagrega si el prefab no lo trae, por el mismo motivo que
-        // EnemyHealth se autoagrega EnemyHitFeedback: asi la ballesta funciona igual con su modelo
-        // definitivo, con un prefab al que alguien se olvido de ponerle el componente, o con el
-        // placeholder que se arma por codigo y no tiene prefab ninguno.
+        // El componente que ataca (Ballesta o Espada) se autoagrega si el prefab no lo trae, por el
+        // mismo motivo que EnemyHealth se autoagrega EnemyHitFeedback: asi el arma funciona igual
+        // con su modelo definitivo, con un prefab al que alguien se olvido de ponerle el componente,
+        // o con el placeholder que se arma por codigo y no tiene prefab ninguno.
         if (esBallesta && armaInstanciada.GetComponent<Ballesta>() == null)
         {
             armaInstanciada.AddComponent<Ballesta>();
+        }
+        else if (!esBallesta && armaInstanciada.GetComponent<Espada>() == null)
+        {
+            armaInstanciada.AddComponent<Espada>();
         }
 
         idEquipado = id;

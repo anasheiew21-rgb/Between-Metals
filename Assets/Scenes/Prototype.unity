@@ -6767,7 +6767,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a4ce038d557fb04ab82172c4d322f20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
-  maxHealth: 200
+  maxHealth: 500
 --- !u!54 &321761849
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -10425,7 +10425,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8884838663899534153, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 2.29
+      value: -0.01
       objectReference: {fileID: 0}
     - target: {fileID: 8884838663899534153, guid: ec4302dfd4755334ea86ca2cd3f1163f, type: 3}
       propertyPath: m_LocalPosition.z
@@ -17681,7 +17681,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a4ce038d557fb04ab82172c4d322f20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
-  maxHealth: 200
+  maxHealth: 500
 --- !u!54 &785015683
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -18111,7 +18111,7 @@ Light:
   serializedVersion: 13
   m_Type: 0
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 3500
+  m_Intensity: 1200
   m_Range: 20
   m_SpotAngle: 55
   m_InnerSpotAngle: 21.80208
@@ -33813,7 +33813,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a4ce038d557fb04ab82172c4d322f20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
-  maxHealth: 200
+  maxHealth: 500
 --- !u!114 &995000015
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -41115,7 +41115,7 @@ Transform:
   m_GameObject: {fileID: 1295130222}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.06, z: 0}
+  m_LocalPosition: {x: -1.51, y: 1.068, z: 3.724}
   m_LocalScale: {x: 0.45, y: 0.12, z: 0.45}
   m_ConstrainProportionsScale: 0
   m_Children: []

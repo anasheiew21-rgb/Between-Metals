@@ -22,8 +22,8 @@ public class Ballesta : MonoBehaviour
              "se convierte en ametralladora y el arma deja de tener contra.")]
     [SerializeField] private float cadencia = 1.2f;
 
-    [Tooltip("Daño de un flechazo. Contra los 200 de vida de un enemigo: 2 tiros. El golpe con la " +
-             "daga hace 75 (3 golpes), pero es cuerpo a cuerpo y gasta estamina.")]
+    [Tooltip("Daño de un flechazo. Contra los 500 de vida de un enemigo: 5 tiros. El golpe con la " +
+             "daga hace 75 (7 golpes), pero es cuerpo a cuerpo y gasta estamina.")]
     [SerializeField] private float dano = 100f;
 
     [Tooltip("Metros por segundo de la flecha.")]
