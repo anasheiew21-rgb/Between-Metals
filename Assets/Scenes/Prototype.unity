@@ -6735,7 +6735,7 @@ MonoBehaviour:
   tiempoSinVerParaAbandonar: 3
   tiempoInvestigacion: 3
   attackRange: 1.5
-  attackDamage: 10
+  attackDamage: 35
   attackCooldown: 1.2
   anguloAtaque: 120
   margenRangoGolpe: 0.5
@@ -17649,7 +17649,7 @@ MonoBehaviour:
   tiempoSinVerParaAbandonar: 3
   tiempoInvestigacion: 3
   attackRange: 1.5
-  attackDamage: 10
+  attackDamage: 35
   attackCooldown: 1.2
   anguloAtaque: 120
   margenRangoGolpe: 0.5
