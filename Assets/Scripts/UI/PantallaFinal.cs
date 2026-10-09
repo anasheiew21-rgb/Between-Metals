@@ -58,7 +58,7 @@ public static class PantallaFinal
 
         float anchoBoton = panel.width - EstiloUI.Padding * 2f;
 
-        if (GUI.Button(new Rect(panel.x + EstiloUI.Padding, y, anchoBoton, EstiloUI.AltoBoton), "NUEVA PARTIDA", EstiloUI.BotonPrimario))
+        if (SonidosUI.Boton(new Rect(panel.x + EstiloUI.Padding, y, anchoBoton, EstiloUI.AltoBoton), "NUEVA PARTIDA", EstiloUI.BotonPrimario))
         {
             NavegacionUI.NuevaPartida();
         }
@@ -67,7 +67,7 @@ public static class PantallaFinal
         // Gris si la escena del menu todavia no existe (nadie corrio MenuPrincipalBuilder): se ve
         // que el boton esta, pero no se puede apretar para que no tire un error al vacio.
         GUI.enabled = NavegacionUI.SePuedeCargar(escenaMenuPrincipal);
-        if (GUI.Button(new Rect(panel.x + EstiloUI.Padding, y, anchoBoton, EstiloUI.AltoBoton), "VOLVER AL MENÚ", EstiloUI.BotonSecundario))
+        if (SonidosUI.BotonAtras(new Rect(panel.x + EstiloUI.Padding, y, anchoBoton, EstiloUI.AltoBoton), "VOLVER AL MENÚ", EstiloUI.BotonSecundario))
         {
             NavegacionUI.Cargar(escenaMenuPrincipal, "escenaMenuPrincipal", contexto);
         }

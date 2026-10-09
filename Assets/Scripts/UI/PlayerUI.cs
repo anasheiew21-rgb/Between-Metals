@@ -489,21 +489,34 @@ public class PlayerUI : MonoBehaviour
                     : colorCasillaVacia;
             }
 
+            // Mismo criterio que el nombre de abajo: el icono tampoco se dibuja si el jugador no
+            // tiene el item, para que una casilla que no sirve se vea VACIA y no a medio llenar. Lo
+            // que dice si la casilla esta asignada o no es el color del borde.
             bool hayIcono = item != null && item.icon != null;
             if (casilla.icono != null)
             {
-                casilla.icono.enabled = hayIcono;
+                casilla.icono.enabled = hayIcono && disponible;
                 casilla.icono.sprite = hayIcono ? item.icon : null;
-                // En gris si el jugador no tiene el item: se ve que la casilla existe pero no sirve.
-                casilla.icono.color = disponible ? EstiloUI.BlancoHumo : EstiloUI.GrisMetal;
+                casilla.icono.color = EstiloUI.BlancoHumo;
             }
 
             if (casilla.nombre != null)
             {
-                // El nombre es el respaldo del icono: mientras los ItemData no tengan sprite, es
-                // lo unico que identifica la casilla.
-                casilla.nombre.text = hayIcono || item == null ? string.Empty : item.itemName;
-                casilla.nombre.color = disponible ? EstiloUI.BlancoHumo : EstiloUI.GrisMetal;
+                // El nombre aparece SOLO si el jugador tiene el item. Una casilla vacia muestra
+                // nada mas que su numero de tecla.
+                //
+                // Antes se dibujaba el nombre de todo lo que la casilla tuviera asignado, lo tuviera
+                // el jugador o no (en gris). El efecto era que la barra arrancaba con "Arma",
+                // "Poción de vida", "Ración de comida" y "Ballesta" escritos desde el primer frame,
+                // que se lee como si el jugador ya tuviera las cuatro cosas. Ahora el nombre es
+                // informacion de que TENES, y la casilla se va llenando a medida que se recoge o se
+                // compra: Inventory.OnInventoryChanged ya dispara este repintado (ver Suscribir).
+                //
+                // Sigue siendo el respaldo del icono: con sprite asignado manda el icono, porque los
+                // dos juntos en 64 px no entran.
+                bool mostrarNombre = item != null && disponible && !hayIcono;
+                casilla.nombre.text = mostrarNombre ? item.itemName : string.Empty;
+                casilla.nombre.color = EstiloUI.BlancoHumo;
             }
 
             if (casilla.cantidad != null)

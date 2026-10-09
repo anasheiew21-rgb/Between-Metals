@@ -39,6 +39,10 @@ public class EfectosDeItem : MonoBehaviour
     [Tooltip("Si se deja vacío se busca un PlayerStats en este objeto, sus hijos, su padre o la escena")]
     [SerializeField] private PlayerStats stats;
 
+    [Header("Sonido")]
+    [Tooltip("Volumen del sonido al usar un ítem. 0 lo desactiva")]
+    [Range(0f, 1f)] [SerializeField] private float volumenAlUsar = 0.55f;
+
     // Inventario al que está enganchado ahora mismo: hace falta recordarlo para desuscribirse del
     // correcto si cambia. El PlayerStats se cachea en un campo aparte y no en el serializado, para
     // no escribir nunca un campo serializado desde código (en modo edición ensuciaría la escena).
@@ -147,6 +151,13 @@ public class EfectosDeItem : MonoBehaviour
     {
         if (item == null) return;
 
+        // El sonido va ANTES del mapeo de curación y sin depender de él: usar una llave o el arma
+        // no cura nada pero igual tiene que sonar. Es el mismo clip propio del ítem que ya suena
+        // al recogerlo (ver ItemPickup), mas bajo: en 2D porque el ítem está en la mano, no en el
+        // mapa. Este es el único lugar del proyecto que escucha OnItemUsed, así que es acá o en
+        // ningún lado.
+        SonarAlUsar(item);
+
         float curacion = CuracionDe(item.itemId);
         if (curacion <= 0f) return;
 
@@ -165,6 +176,16 @@ public class EfectosDeItem : MonoBehaviour
         // Curar() ya recorta en maxHealth, ignora cantidades <= 0 y no hace nada si el jugador está
         // muerto: acá no hace falta repetir ninguna de esas validaciones.
         jugador.Curar(curacion);
+    }
+
+    void SonarAlUsar(ItemData item)
+    {
+        if (volumenAlUsar <= 0f) return;
+
+        AudioClip clip = item.sonido != null ? item.sonido : BibliotecaDeSonidos.SonidoDeItem(item.itemId);
+        if (clip == null) return;
+
+        BibliotecaDeSonidos.Reproducir2D(clip, volumenAlUsar);
     }
 
     Inventory ResolverInventario()

@@ -286,9 +286,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9531d40317547e49a651f59eab3f108, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FondoMenu
-  imagenDeFondo: {fileID: 0}
-  colorDeFondo: {r: 0.04, g: 0.05, b: 0.07, a: 1}
-  mantenerProporcion: 1
+  imagenDeFondo: {fileID: 21300000, guid: d7eddf46abc822f1131c4fad111d039a, type: 3}
+  colorDeFondo: {r: 0.02, g: 0.02, b: 0.03, a: 1}
+  modoEncuadre: 1
   ordenCanvas: -100
 --- !u!114 &2144704094
 MonoBehaviour:
@@ -302,12 +302,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 10acdb9664125054294b8ff9bbacddf9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Menu
-  gameTitle: Between Metals
+  gameTitle: 
   modo: 1
   openOnStart: 1
   escenaDeJuego: Prototype
   escenaMenuPrincipal: MenuPrincipal
-  oscurecerFondo: 0.35
+  oscurecerFondo: 0.3
+  desplazamientoBotones: 90
 --- !u!4 &2144704095
 Transform:
   m_ObjectHideFlags: 0

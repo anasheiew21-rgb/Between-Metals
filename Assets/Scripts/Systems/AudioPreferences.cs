@@ -30,11 +30,15 @@ public static class AudioPreferences
     static AudioMixer mixer;
     static bool mixerLookupDone;
 
-    // Nombre del grupo (no del parametro expuesto) al que se rutean los SFX del juego.
+    // Nombre de los grupos (no de los parametros expuestos) a los que se rutea el audio del juego.
     const string SfxGroupName = "sfx";
+    const string MusicGroupName = "music";
 
     static AudioMixerGroup sfxGroup;
     static bool sfxGroupLookupDone;
+
+    static AudioMixerGroup musicGroup;
+    static bool musicGroupLookupDone;
 
     public static float Master
     {
@@ -166,12 +170,42 @@ public static class AudioPreferences
         }
     }
 
+    // Grupo "music" del mixer, para la musica de ambiente que crea MusicaAmbiente en tiempo de
+    // ejecucion. Sin esto la musica saldria directo al Master y el slider "Musica" del menu no la
+    // afectaria (justamente el slider que un jugador baja primero).
+    public static AudioMixerGroup MusicGroup
+    {
+        get
+        {
+            if (!musicGroupLookupDone)
+            {
+                musicGroupLookupDone = true;
+                AudioMixer m = Mixer;
+                if (m != null)
+                {
+                    AudioMixerGroup[] grupos = m.FindMatchingGroups(MusicGroupName);
+                    if (grupos != null && grupos.Length > 0) musicGroup = grupos[0];
+                }
+            }
+            return musicGroup;
+        }
+    }
+
     // No pisa un grupo ya elegido a mano en el Inspector: solo completa el que falta.
     public static void RutearASfx(AudioSource source)
     {
-        if (source == null || source.outputAudioMixerGroup != null) return;
+        Rutear(source, SfxGroup);
+    }
 
-        AudioMixerGroup grupo = SfxGroup;
+    /// <summary>Misma idea que RutearASfx, pero al grupo "music" del mixer.</summary>
+    public static void RutearAMusica(AudioSource source)
+    {
+        Rutear(source, MusicGroup);
+    }
+
+    static void Rutear(AudioSource source, AudioMixerGroup grupo)
+    {
+        if (source == null || source.outputAudioMixerGroup != null) return;
         if (grupo != null) source.outputAudioMixerGroup = grupo;
     }
 }

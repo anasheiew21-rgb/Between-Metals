@@ -22,6 +22,13 @@ public class PlayerController : MonoBehaviour
     {
         controller = GetComponent<CharacterController>();
         stats = GetComponent<PlayerStats>();
+
+        // Pasos: se agregan desde aca y no a mano en la escena porque este es el unico objeto que
+        // sabe que es "el cuerpo del jugador" (es el que tiene el CharacterController del que
+        // PasosJugador lee la velocidad), y asi el jugador suena igual en cualquier escena que se
+        // arme, sin un paso de setup que alguien se pueda olvidar. Si ya esta puesto en el
+        // Inspector no se toca, y valen los valores que tenga configurados ahi.
+        if (GetComponent<PasosJugador>() == null) gameObject.AddComponent<PasosJugador>();
     }
 
     void Update()

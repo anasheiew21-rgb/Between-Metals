@@ -102,7 +102,12 @@ public class ComercianteGestos : MonoBehaviour
         tiempoRestante = Random.Range(minimo, Mathf.Max(minimo, esperaMaxima));
     }
 
-    void Reproducir(string estado)
+    /// <summary>
+    /// Pide que el enano haga ese gesto, por nombre de estado del Animator Controller. Publico para
+    /// que DialogoComerciante pueda acompanar una frase con el gesto que le corresponde. Si hay otro
+    /// gesto corriendo se ignora el pedido: no se corta uno por la mitad.
+    /// </summary>
+    public void Reproducir(string estado)
     {
         if (string.IsNullOrEmpty(estado)) return;
 

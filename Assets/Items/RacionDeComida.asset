@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: racion_comida
   itemName: "Raci\xF3n de comida"
-  description: "Alimento basico. Se consume al comerlo."
+  description: Alimento basico. Se consume al comerlo.
   icon: {fileID: 0}
   consumeOnUse: 1
+  sonido: {fileID: 0}
+  modelo3D: {fileID: 8422965271483720159, guid: 1cd74abf997c03247b6ca08d452f18ab, type: 3}

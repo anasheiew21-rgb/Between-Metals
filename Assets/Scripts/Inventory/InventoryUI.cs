@@ -301,7 +301,7 @@ public class InventoryUI : MonoBehaviour
                 ladoCasilla, AltoCasilla);
 
             GUIStyle estilo = i == state.SelectedIndex ? EstiloUI.CasillaActiva : EstiloUI.Casilla;
-            if (GUI.Button(casilla, slotContents[i], estilo)) state.SelectSlot(i);
+            if (SonidosUI.Boton(casilla, slotContents[i], estilo)) state.SelectSlot(i);
         }
     }
 
@@ -339,11 +339,11 @@ public class InventoryUI : MonoBehaviour
         // USAR es el boton primario (la accion esperada) y se apaga sin seleccion; CERRAR siempre
         // esta disponible, porque es la unica salida del panel con el mouse.
         GUI.enabled = seleccionado != null;
-        if (GUI.Button(new Rect(zona.x, y, zona.width, EstiloUI.AltoBoton), "USAR", EstiloUI.BotonPrimario)) state.UseSelected(Time.time);
+        if (SonidosUI.Boton(new Rect(zona.x, y, zona.width, EstiloUI.AltoBoton), "USAR", EstiloUI.BotonPrimario)) state.UseSelected(Time.time);
         GUI.enabled = true;
         y += EstiloUI.AltoBoton + EstiloUI.Separacion;
 
-        if (GUI.Button(new Rect(zona.x, y, zona.width, EstiloUI.AltoBoton), "CERRAR", EstiloUI.BotonSecundario)) state.Toggle();
+        if (SonidosUI.BotonAtras(new Rect(zona.x, y, zona.width, EstiloUI.AltoBoton), "CERRAR", EstiloUI.BotonSecundario)) state.Toggle();
     }
 
     void RebuildLabelsIfNeeded()

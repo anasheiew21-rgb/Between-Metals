@@ -115,8 +115,10 @@ public class BarraRapida : MonoBehaviour
         ItemData item = ItemDe(casilla);
         if (item == null) return false;
 
+        // EstaEquipado(item) y no ArmaEquipada: desde que hay mas de un arma, preguntar "¿hay algo en
+        // la mano?" encenderia la casilla de la daga con la ballesta empunada.
         EquipoJugador eq = ResolverEquipo();
-        return eq != null && eq.PuedeEquipar(item) && eq.ArmaEquipada;
+        return eq != null && eq.EstaEquipado(item);
     }
 
     /// <summary>Cuantas unidades de ese item tiene el jugador. 0 si no tiene ninguna.</summary>

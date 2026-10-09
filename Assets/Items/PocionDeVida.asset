@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: pocion_vida
   itemName: "Poci\xF3n de vida"
-  description: "Restaura una parte de la vida al usarla."
+  description: Restaura una parte de la vida al usarla.
   icon: {fileID: 0}
   consumeOnUse: 1
+  sonido: {fileID: 0}
+  modelo3D: {fileID: 1887528426101812687, guid: 9175abebedfa0a34da289f59cc815132, type: 3}

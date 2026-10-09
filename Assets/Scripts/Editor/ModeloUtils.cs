@@ -189,6 +189,141 @@ public static class ModeloUtils
         return material;
     }
 
+    /// <summary>
+    /// Arma un prefab a partir de un FBX: lo mide, lo escala a 'largo' metros, lo orienta a
+    /// 'ejeDestino', lo centra y lo guarda en 'rutaPrefab'. Es la version compartida del patron que
+    /// ya usaban ProgresionBuilder (arma y llaves) y ModelosItemsBuilder (items del piso).
+    ///
+    /// Jerarquia que deja, la de tres niveles que documenta la cabecera de esta clase:
+    ///   Raiz        pose final, la que toca el que lo usa
+    ///   └── Ajuste  escala, orientacion y centrado, todo medido sobre el mesh
+    ///       └── FBX la instancia del modelo, con su transform tal cual lo importo Unity
+    ///
+    /// Se regenera en cada corrida a proposito: el prefab es una pieza derivada del FBX, no un asset
+    /// que se edite a mano.
+    /// </summary>
+    /// <param name="rutaTextura">
+    /// Opcional, para los FBX de packs de terceros: les pone un material URP del proyecto con esa
+    /// textura (ver PintarConTextura). Los FBX de Tripo no lo necesitan.
+    /// </param>
+    /// <param name="apoyarEnElPiso">
+    /// true deja la BASE del modelo en el origen en vez de su centro. Es lo que necesita un objeto
+    /// tirado en el piso; un arma que cuelga de la camara, no.
+    /// </param>
+    /// <returns>El prefab guardado, o null -con un aviso- si el FBX no esta en el proyecto.</returns>
+    public static GameObject GuardarPrefabDeFbx(string rutaFbx, string rutaPrefab, string nombre,
+        float largo, Eje ejeDestino, string rutaTextura = null, string carpetaMateriales = null,
+        string nombreMaterial = null, bool apoyarEnElPiso = false)
+    {
+        var modelo = AssetDatabase.LoadAssetAtPath<GameObject>(rutaFbx);
+        if (modelo == null)
+        {
+            // Log y no LogWarning: que falte el FBX de un pack que no esta en el repo es un caso
+            // previsto, y el que llama tiene su placeholder de respaldo.
+            Debug.Log($"ModeloUtils: no esta '{rutaFbx}'; '{nombre}' no se genera y queda su placeholder.");
+            return null;
+        }
+
+        ConfigurarMallaEstatica(rutaFbx);
+        AsegurarCarpeta(System.IO.Path.GetDirectoryName(rutaPrefab).Replace('\\', '/'));
+
+        var raiz = new GameObject(nombre);
+
+        try
+        {
+            var ajuste = new GameObject("Ajuste");
+            ajuste.transform.SetParent(raiz.transform, false);
+
+            var instancia = (GameObject)PrefabUtility.InstantiatePrefab(modelo);
+            instancia.transform.SetParent(ajuste.transform, false);
+
+            float escala = Acomodar(ajuste.transform, instancia, largo, ejeDestino, out Bounds bounds);
+
+            // Acomodar deja el modelo centrado en el origen; apoyarlo es subirlo medio alto.
+            if (apoyarEnElPiso) ajuste.transform.localPosition += Vector3.up * (bounds.size.y * 0.5f);
+
+            if (rutaTextura != null && carpetaMateriales != null)
+            {
+                PintarConTextura(instancia, carpetaMateriales, nombreMaterial ?? nombre, rutaTextura);
+            }
+
+            ApagarSombras(instancia);
+
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(raiz, rutaPrefab);
+            Debug.Log($"ModeloUtils: {rutaPrefab} generado desde {rutaFbx} " +
+                $"(escala {escala:F4}, largo {largo} m sobre el eje {ejeDestino}).");
+            return prefab;
+        }
+        finally
+        {
+            Object.DestroyImmediate(raiz);
+        }
+    }
+
+    /// <summary>
+    /// Reemplaza los materiales de un modelo por un material URP del proyecto con esa textura. Es lo
+    /// que hace falta para los FBX de los packs de terceros: sus .mat apuntan al shader built-in y
+    /// bajo URP se dibujan magenta. No se edita el .mat del pack porque es ajeno y se puede
+    /// reimportar encima. Devuelve false, con un aviso, si la textura no esta.
+    /// </summary>
+    public static bool PintarConTextura(GameObject instancia, string carpetaMateriales,
+        string nombreMaterial, string rutaTextura)
+    {
+        var textura = AssetDatabase.LoadAssetAtPath<Texture>(rutaTextura);
+        if (textura == null)
+        {
+            Debug.LogWarning($"ModeloUtils: no esta la textura '{rutaTextura}'; '{instancia.name}' queda " +
+                "con el material del pack y bajo URP se va a ver magenta.");
+            return false;
+        }
+
+        Material material = MaterialConTextura(carpetaMateriales, nombreMaterial, textura);
+
+        foreach (Renderer renderer in instancia.GetComponentsInChildren<Renderer>(true))
+        {
+            // sharedMaterials y no sharedMaterial: un mesh puede traer mas de un submesh, y en estos
+            // packs todos los submeshes salen del mismo atlas.
+            int cuantos = Mathf.Max(renderer.sharedMaterials.Length, 1);
+            var materiales = new Material[cuantos];
+            for (int i = 0; i < cuantos; i++) materiales[i] = material;
+            renderer.sharedMaterials = materiales;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Material URP con una textura de color, guardado como asset, uno por nombre. Es el caso de un
+    /// FBX que viene con su atlas: el material que trae el pack apunta al shader built-in y bajo URP
+    /// se dibuja magenta, asi que el proyecto se arma el suyo con la misma textura en vez de editar
+    /// un .mat de terceros. Si el asset ya existe no se toca, igual que MaterialDeColor.
+    /// </summary>
+    public static Material MaterialConTextura(string carpeta, string nombre, Texture textura)
+    {
+        string ruta = carpeta + "/" + nombre + ".mat";
+        var material = AssetDatabase.LoadAssetAtPath<Material>(ruta);
+        if (material != null) return material;
+
+        AsegurarCarpeta(carpeta);
+
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        material = new Material(shader) { name = nombre };
+
+        // _BaseMap es el nombre de la propiedad en URP y _MainTex el del built-in: se setean las dos
+        // para que el material quede con la textura puesta con cualquiera de los dos shaders.
+        if (material.HasProperty("_BaseMap")) material.SetTexture("_BaseMap", textura);
+        if (material.HasProperty("_MainTex")) material.SetTexture("_MainTex", textura);
+
+        // Atlas de color plano y juego oscuro: con el smoothness por defecto el objeto se lee como
+        // plastico mojado y el reflejo de la linterna le come la silueta.
+        if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", 0.2f);
+        if (material.HasProperty("_Glossiness")) material.SetFloat("_Glossiness", 0.2f);
+
+        AssetDatabase.CreateAsset(material, ruta);
+        AssetDatabase.SaveAssets();
+        return material;
+    }
+
     /// <summary>Crea la carpeta de assets y las que le falten por encima. No hace nada si ya existe.</summary>
     public static void AsegurarCarpeta(string ruta)
     {

@@ -65,6 +65,12 @@ public class EnemyAI : MonoBehaviour
     [Tooltip("Desactivalo cuando TODOS los clips de ataque ya tengan su Animation Event: el dano pasa a depender solo del frame de impacto")]
     [SerializeField] private bool golpeDeRespaldoSinEvento = true;
 
+    [Tooltip("Apaga la colision fisica entre el enemigo y el jugador. Evita que el enemigo pueda " +
+             "expulsar al jugador a traves del piso o las paredes empujandolo. En contra: el jugador " +
+             "puede atravesar al enemigo caminando. El dano no depende del contacto, asi que el " +
+             "combate funciona igual")]
+    [SerializeField] private bool ignorarColisionConJugador = true;
+
     [Header("Movimiento / modelo 3D")]
     [Tooltip("Velocidad de giro del cuerpo hacia donde camina")]
     [SerializeField] private float velocidadGiro = 10f;
@@ -72,6 +78,11 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private bool desactivarRootMotion = true;
     [Tooltip("Material del enemigo. Si se asigna, se aplica a los SkinnedMeshRenderer del modelo en Awake (antes de que EnemyHitFeedback cachee el color), asi el modelo nunca queda blanco")]
     [SerializeField] private Material enemyMaterial;
+
+    [Tooltip("Centimetros a sumar (o restar, en negativo) a la altura del enemigo sobre el piso. " +
+             "0 lo apoya sobre el punto mas bajo de su modelo, que es lo correcto; esto es para " +
+             "corregir a ojo si los bounds del modelo no coinciden con donde estan los pies")]
+    [SerializeField] private float ajusteAlturaSobreElPiso = 0f;
 
     [Header("Audio")]
     [Tooltip("Si se deja vacio se busca/crea un AudioSource en este objeto al entrar en juego")]
@@ -85,6 +96,15 @@ public class EnemyAI : MonoBehaviour
     [Range(0f, 1f)][SerializeField] private float volumenRugido = 1f;
     [Tooltip("Distancia a la que el sonido del enemigo deja de oirse (AudioSource 3D)")]
     [SerializeField] private float alcanceAudio = 25f;
+
+    // Holgura entre "los dos cuerpos se tocan" y "el enemigo ataca". Sin ella el ataque se
+    // dispararia justo en el limite del contacto, donde cualquier temblor del agente lo saca y lo
+    // mete del rango.
+    const float HolguraContacto = 0.2f;
+
+    // Radio que se asume para el jugador si no se le encuentra CharacterController (no deberia
+    // pasar: es el que mueve a PlayerController).
+    const float RadioJugadorPorDefecto = 0.5f;
 
     const float IntervaloActualizarDestinoPersecucion = 0.2f;
     const float IntervaloDeteccion = 0.1f; // ~10 chequeos de vision por segundo (en vez de cada frame)
@@ -148,6 +168,29 @@ public class EnemyAI : MonoBehaviour
     public bool TieneGolpePendiente => golpePendiente;
     public float DanoDeAtaque => attackDamage;
 
+    /// <summary>
+    /// Distancia pivote-a-pivote a la que los cuerpos del enemigo y del jugador se tocan: la suma
+    /// de los dos radios. Es el piso fisico de cualquier distancia de combate — mas cerca que esto
+    /// no se pueden poner, porque sus colliders se lo impiden.
+    /// </summary>
+    public float SeparacionDeCuerpos => RadioPropio() + RadioDelJugador();
+
+    /// <summary>
+    /// Distancia pivote-a-pivote a la que el enemigo ataca.
+    ///
+    /// attackRange es lo que pide el diseño, pero NUNCA puede ser menor que lo que los dos cuerpos
+    /// permiten. Este era el bug de fondo: medir el ataque entre pivotes ignorando que cada uno
+    /// ocupa lugar. Con el enemigo de la escena (hitbox de 0.78 m de radio) y el jugador (0.5 +
+    /// 0.08 de skin), sus pivotes no se pueden acercar a menos de ~1.36 m; pedir 1.2 m -lo que
+    /// pedia stoppingDistance- es pedir algo fisicamente imposible, asi que el agente nunca
+    /// "llegaba", seguia acelerando contra el jugador para siempre (la presion que lo atravesaba
+    /// por el piso y las paredes) y el ataque quedaba colgado en el borde del rango.
+    ///
+    /// Tomando el mayor de los dos, el rango de ataque no puede quedar vacio por mas gorda que
+    /// quede la hitbox del modelo, que es justo la fragilidad que lo rompio.
+    /// </summary>
+    public float DistanciaDeAtaque => Mathf.Max(attackRange, SeparacionDeCuerpos + HolguraContacto);
+
     public event System.Action AlAtacar;
 
     // El modelo y su material se resuelven en Awake, no en Start: EnemyHitFeedback cachea en su
@@ -174,6 +217,8 @@ public class EnemyAI : MonoBehaviour
 
         propiosColliders = GetComponentsInChildren<Collider>();
 
+        IgnorarColisionConJugador();
+
         InicializarNavegacion();
         AsegurarAudioSource();
 
@@ -186,6 +231,47 @@ public class EnemyAI : MonoBehaviour
     void OnDestroy()
     {
         if (salud != null) salud.AlMorir -= ManejarMuerte;
+    }
+
+    // Apaga la colision fisica entre el cuerpo del enemigo y el CharacterController del jugador.
+    //
+    // Por que: el enemigo es un Rigidbody cinematico movido por el NavMeshAgent, y un cinematico
+    // que se mete dentro de un CharacterController no se frena — lo que cede es el jugador, que
+    // Unity "despenetra" empujandolo. Contra una pared o una esquina no hay lugar donde empujarlo,
+    // y termina saliendo del otro lado: el jugador atravesando el piso o los muros por presion.
+    //
+    // Es la red de seguridad, no el arreglo principal: el que evita el empuje es
+    // SincronizarDistanciaDeFrenado(), que hace que el agente frene ANTES de encimarse. Esto cubre
+    // lo que esa cuenta no puede cubrir — aparecer encima del jugador, que otro enemigo lo empuje
+    // adentro, un frame de overshoot — donde el precio de fallar es atravesar el mapa.
+    //
+    // El contacto fisico entre los dos NO tiene ningun rol de juego: el dano lo aplica OnAttackHit()
+    // por distancia y angulo, no por tocarse. El enemigo sigue chocando con el resto del mundo
+    // (paredes, piso, otros enemigos) y el jugador tambien.
+    //
+    // A cambio, el jugador puede atravesar al enemigo caminando: el monstruo deja de ser solido.
+    // Por eso es un toggle y no una decision tomada por el codigo — si se prefiere un enemigo
+    // solido, se apaga ignorarColisionConJugador y queda solo la distancia de frenado.
+    //
+    // Lo que NO afecta: Physics.IgnoreCollision solo apaga los contactos entre ESE par de
+    // colliders; las consultas siguen viendolos igual. El SphereCast con el que PlayerCombat le
+    // pega al enemigo y el raycast de vision de PuedeVerAlJugador siguen funcionando.
+    //
+    // Es estado de PhysX y no del collider, asi que no sobrevive a recargar la escena: se vuelve a
+    // pedir en cada Start, que es justo lo que hace falta.
+    void IgnorarColisionConJugador()
+    {
+        if (!ignorarColisionConJugador) return;
+        if (controladorJugador == null || propiosColliders == null) return;
+
+        foreach (Collider propio in propiosColliders)
+        {
+            // Un trigger ya no genera contactos; pedirselo igual no rompe, pero se saltea para
+            // dejar claro que esto es solo para los colliders solidos.
+            if (propio == null || propio.isTrigger) continue;
+
+            Physics.IgnoreCollision(propio, controladorJugador, true);
+        }
     }
 
     // Detiene el NavMeshAgent y apaga este componente (Update deja de correr). EnemyHealth no
@@ -287,11 +373,19 @@ public class EnemyAI : MonoBehaviour
         if (agent == null) agent = gameObject.AddComponent<NavMeshAgent>();
 
         agent.speed = patrolSpeed;
-        agent.stoppingDistance = Mathf.Max(0.05f, attackRange - 0.3f);
         agent.acceleration = 12f;
         agent.updateRotation = false; // la rotacion la maneja MirarHacia() a mano, igual que antes
 
         SincronizarFormaDelAgente();
+
+        // Despues de SincronizarFormaDelAgente y FUERA de ella: esa funcion se va por un early
+        // return cuando el enemigo no tiene CapsuleCollider, que es el caso de los enemigos extra
+        // (todavia son la esfera placeholder de EnemigosExtraBuilder). Si la distancia de frenado
+        // se calculara ahi adentro, esos enemigos se quedarian con el stoppingDistance 0 que trae
+        // Unity por defecto y entrarian hasta el centro del jugador: exactamente el bug que esto
+        // viene a arreglar, pero solo en dos de los tres enemigos.
+        SincronizarDistanciaDeFrenado();
+        SincronizarAlturaDelAgente();
 
         rb = GetComponent<Rigidbody>();
         if (rb != null) rb.isKinematic = true;
@@ -330,6 +424,95 @@ public class EnemyAI : MonoBehaviour
 
         agent.radius = radio;
         agent.height = alto;
+    }
+
+    // El agente tiene que frenar donde el enemigo puede atacar, y no un poco mas adentro.
+    //
+    // Antes esto era attackRange - 0.3, un numero que no sabia nada del tamano de los dos cuerpos:
+    // con la hitbox del enemigo de la escena pedia frenar a 1.2 m cuando sus colliders se tocan a
+    // 1.36 m, o sea le pedia meterse dentro del jugador. El agente nunca daba por cumplido el
+    // destino, seguia empujando a fondo, y esa presion constante es la que terminaba expulsando al
+    // jugador por el piso o las paredes.
+    //
+    // Va despues de SincronizarFormaDelAgente porque, cuando el enemigo no tiene collider propio,
+    // RadioPropio() se cae al radio del agente, que es lo que esa funcion acaba de dejar puesto.
+    void SincronizarDistanciaDeFrenado()
+    {
+        if (agent == null) return;
+
+        // Un pelo por debajo de la distancia de ataque, para que el frame en el que el agente da el
+        // destino por alcanzado sea uno en el que el ataque ya conecta.
+        agent.stoppingDistance = Mathf.Max(0.05f, DistanciaDeAtaque - 0.05f);
+    }
+
+    // Apoya al enemigo en el piso: el NavMeshAgent ubica el objeto a "superficie del NavMesh +
+    // baseOffset", asi que baseOffset es LA propiedad que decide a que altura queda.
+    //
+    // Nadie la estaba tocando, y ese era el bug de los enemigos flotando: el valor que quedaba era
+    // el que Unity deja al agregar el componente (0.5 en los enemigos extra de la escena), y el
+    // codigo sincronizaba el radio y el alto del agente con el cuerpo pero se olvidaba de la
+    // altura. Mismo patron de fallo que tenia stoppingDistance.
+    //
+    // No se pone un 0 ni un numero a mano: se mide donde termina el enemigo por abajo y se levanta
+    // exactamente eso. Asi sale bien en los dos casos que hay en la escena, que necesitan valores
+    // distintos:
+    //
+    //   - El enemigo con modelo: su pivote esta a la altura de los pies (mas o menos: en la escena
+    //     el hijo "Modelo" quedo 13 cm corrido), asi que el offset es casi 0 y lo que hace es
+    //     compensar ese desfasaje.
+    //   - Los enemigos extra, que todavia son la esfera placeholder: su pivote es el CENTRO de la
+    //     esfera, asi que hay que levantarlos su radio (0.5) o quedarian medio enterrados. Es
+    //     justo el 0.5 que ya tenian serializado, o sea que para ellos no cambia nada.
+    //
+    // Se llama desde AsegurarAgente y antes de AsegurarSobreNavMesh, para que el primer Warp ya
+    // deje al enemigo apoyado y empiece a caminar desde ahi sin un salto visible en el primer frame.
+    void SincronizarAlturaDelAgente()
+    {
+        if (agent == null) return;
+
+        if (!MedirDesfaseHastaLaBase(out float desfase)) return; // sin nada que medir, se deja como esta
+
+        agent.baseOffset = desfase + ajusteAlturaSobreElPiso;
+    }
+
+    // Cuanto hay desde el pivote del enemigo hasta su punto visible mas bajo, en metros de mundo.
+    //
+    // Se mide en mundo y relativo a transform.position (y no convirtiendo a espacio local) para no
+    // tener que pensar en la escala del objeto: el enemigo de la escena esta escalado 1.23 en Y, y
+    // una cuenta en local habria que multiplicarla por esa escala para volver a mundo.
+    //
+    // Devuelve false si el enemigo no tiene ningun Renderer: no hay nada visible que apoyar, y en
+    // ese caso es mejor no tocar el offset que ponerlo en un valor inventado.
+    bool MedirDesfaseHastaLaBase(out float desfase)
+    {
+        desfase = 0f;
+
+        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        if (renderers == null || renderers.Length == 0) return false;
+
+        bool hayAlguno = false;
+        float masBajo = 0f;
+
+        foreach (Renderer r in renderers)
+        {
+            if (r == null) continue;
+
+            // bounds es la caja en mundo, ya con la pose y la escala aplicadas. Para un
+            // SkinnedMeshRenderer puede ser un poco mas grande que la malla real, y de ahi que
+            // exista ajusteAlturaSobreElPiso para corregir los ultimos centimetros a ojo.
+            float baseDelRenderer = r.bounds.min.y;
+
+            if (!hayAlguno || baseDelRenderer < masBajo)
+            {
+                masBajo = baseDelRenderer;
+                hayAlguno = true;
+            }
+        }
+
+        if (!hayAlguno) return false;
+
+        desfase = transform.position.y - masBajo;
+        return true;
     }
 
     // Inicializacion perezosa: si el NavMesh todavia no estaba armado cuando el agente se creo,
@@ -665,7 +848,7 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-        if (distancia <= attackRange)
+        if (distancia <= DistanciaDeAtaque)
         {
             DetenerMovimiento();
             MirarHacia(jugador.position);
@@ -751,9 +934,12 @@ public class EnemyAI : MonoBehaviour
         hacia.y = 0f;
         float distancia = hacia.magnitude;
 
-        if (distancia > attackRange + margenRangoGolpe) return false;
+        if (distancia > DistanciaDeAtaque + margenRangoGolpe) return false;
         if (distancia < 0.0001f) return true; // encimado: no hay direccion que medir
 
+        // El angulo se mide en horizontal (transform.forward ya es horizontal y 'hacia' tiene la Y
+        // en cero unas lineas arriba): la diferencia de altura entre los pivotes no tiene que
+        // contar como "esta de costado".
         return Vector3.Angle(transform.forward, hacia) <= anguloAtaque * 0.5f;
     }
 
@@ -764,6 +950,39 @@ public class EnemyAI : MonoBehaviour
         Vector3 delta = jugador.position - transform.position;
         delta.y = 0f;
         return delta.magnitude;
+    }
+
+    // Radio horizontal del cuerpo del enemigo, en metros de mundo (con la escala del transform
+    // aplicada). Soporta las dos formas que hay en la escena: la capsula que le deja EnemySetupFixer
+    // al enemigo con modelo y la esfera placeholder de los enemigos extra (EnemigosExtraBuilder).
+    //
+    // Ojo con la capsula: si el radio pasa de la mitad del alto, Unity la trata como una ESFERA de
+    // ese radio, y es exactamente el caso del enemigo de la escena (radio 0.78, alto 1.04). Por eso
+    // se mide el radio y no se deduce del alto.
+    float RadioPropio()
+    {
+        Vector3 escala = transform.lossyScale;
+        float escalaXZ = Mathf.Max(Mathf.Abs(escala.x), Mathf.Abs(escala.z));
+
+        CapsuleCollider capsula = GetComponent<CapsuleCollider>();
+        if (capsula != null) return capsula.radius * escalaXZ;
+
+        SphereCollider esfera = GetComponent<SphereCollider>();
+        if (esfera != null) return esfera.radius * escalaXZ;
+
+        // Sin collider propio, el agente es lo unico que sabe cuanto ocupa.
+        return agent != null ? agent.radius : 0.5f;
+    }
+
+    // Radio del jugador, con su skinWidth incluido: el CharacterController mantiene esa piel de
+    // separacion, asi que es parte de lo que impide acercarse mas.
+    float RadioDelJugador()
+    {
+        if (controladorJugador == null) return RadioJugadorPorDefecto;
+
+        Vector3 escala = controladorJugador.transform.lossyScale;
+        float escalaXZ = Mathf.Max(Mathf.Abs(escala.x), Mathf.Abs(escala.z));
+        return (controladorJugador.radius + controladorJugador.skinWidth) * escalaXZ;
     }
 
     // ---------------------------------------------------------------
@@ -874,8 +1093,24 @@ public class EnemyAI : MonoBehaviour
 
         if (distancia > detectionRadius) return false;
 
-        float angulo = Vector3.Angle(transform.forward, haciaJugador);
-        if (angulo > fieldOfViewAngle * 0.5f) return false;
+        // El cono de vision se mide en el plano horizontal, no en 3D.
+        //
+        // Medido en 3D, la diferencia de altura entre los ojos del enemigo (1.6 m) y el pivote del
+        // jugador (el centro de su capsula, ~1 m) inflaba el angulo a medida que se acercaban: a
+        // 1.4 m de distancia ya son 24 grados de los 50 disponibles, y mas cerca se pasa del cono
+        // y el enemigo deja de "ver" al jugador que tiene encima. Eso lo mandaba a Investigar
+        // justo cuando tenia que atacar: caminaba hacia la ultima posicion conocida -donde esta
+        // el jugador- empujandolo, que es el "solo me sigue y me empuja" que se veia en el juego.
+        Vector3 haciaJugadorPlano = haciaJugador;
+        haciaJugadorPlano.y = 0f;
+
+        // De frente justo encima (distancia horizontal ~0) no hay direccion que medir: se da por
+        // visto, que es lo que corresponde cuando lo tiene pegado.
+        if (haciaJugadorPlano.sqrMagnitude > 0.0001f
+            && Vector3.Angle(transform.forward, haciaJugadorPlano) > fieldOfViewAngle * 0.5f)
+        {
+            return false;
+        }
 
         // RaycastNonAlloc (no RaycastAll) para no reservar memoria cada frame: mismo buffer fijo
         // reutilizado, ordenado a mano por distancia para poder ignorar el propio collider del

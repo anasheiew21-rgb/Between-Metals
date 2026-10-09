@@ -181,7 +181,7 @@ public class ShopManager : MonoBehaviour
 
         var salir = new Rect(cabecera.x, panel.yMax - EstiloUI.Padding - EstiloUI.AltoBoton,
             cabecera.width, EstiloUI.AltoBoton);
-        if (GUI.Button(salir, "SALIR", EstiloUI.BotonPrimario)) CerrarTienda();
+        if (SonidosUI.BotonAtras(salir, "SALIR", EstiloUI.BotonPrimario)) CerrarTienda();
     }
 
     // Dos filas por articulo: comprar y vender. Devuelve la 'y' siguiente a la ultima fila dibujada.
@@ -199,14 +199,24 @@ public class ShopManager : MonoBehaviour
             // Comprar: da oro y recibe el item. Necesita stock, oro y lugar en el inventario.
             if (indice < maxFilas)
             {
-                bool puede = item.cantidad > 0
-                    && statsJugador != null && statsJugador.PuedePagar(item.precio)
-                    && inventarioJugador != null && !inventarioJugador.IsFull;
+                // El motivo se ESCRIBE en la fila, al lado del nombre. Un boton gris sin explicacion
+                // es indistinguible de un bug: "no me deja comprar la ballesta" puede ser que falte
+                // oro, que no haya stock o que la ballesta no este en la lista, y desde la pantalla
+                // no habia forma de saber cual de las tres.
+                string motivo = MotivoNoCompra(item);
+
+                // Y el boton de comprar queda SIEMPRE habilitado. Deshabilitarlo dejaba el Debug.Log
+                // de Comprar inalcanzable -el clic nunca llegaba al handler-, justo en el caso en que
+                // mas hace falta saber que paso. Con el motivo ya escrito en la fila el boton no
+                // engana: se puede apretar, y si no se puede comprar lo dice en pantalla y en consola.
+                string texto = nombre
+                    + (item.cantidad > 0 ? "  (x" + item.cantidad + ")" : "")
+                    + (motivo != null ? "  - " + motivo : "");
 
                 DibujarFila(cabecera, y, indice, anchoColumna,
                     new GUIContent(item.precio + " oro"),
-                    new GUIContent(nombre + (item.cantidad > 0 ? "  (x" + item.cantidad + ")" : "  (sin stock)"), icono),
-                    puede, () => Comprar(item));
+                    new GUIContent(texto, icono),
+                    true, () => Comprar(item));
 
                 y += EstiloUI.AltoFila;
                 indice++;
@@ -242,7 +252,7 @@ public class ShopManager : MonoBehaviour
 
         var boton = new Rect(fila.xMax - AnchoBoton, fila.y + 3f, AnchoBoton, EstiloUI.AltoFila - 6f);
         GUI.enabled = habilitado;
-        if (GUI.Button(boton, "INTERCAMBIAR", EstiloUI.BotonFila)) intercambiar();
+        if (SonidosUI.Boton(boton, "INTERCAMBIAR", EstiloUI.BotonFila)) intercambiar();
         GUI.enabled = true;
     }
 
@@ -264,39 +274,89 @@ public class ShopManager : MonoBehaviour
     // Operaciones
     // ---------------------------------------------------------------
 
-    void Comprar(ItemComercio item)
+    // Por que NO se puede comprar este articulo, o null si se puede. Se usa en tres lados: para
+    // escribirlo en la propia fila, para el aviso en pantalla y para el Debug.Log. Tener un solo
+    // lugar que decide es lo que evita que la fila diga una cosa y el boton haga otra.
+    string MotivoNoCompra(ItemComercio articulo)
     {
-        if (item.item == null || item.cantidad <= 0) return;
-        if (statsJugador == null || inventarioJugador == null) return;
+        if (articulo == null || articulo.item == null) return "la entrada de la tienda no tiene ItemData asignado";
+        if (articulo.cantidad <= 0) return "sin stock";
+        if (statsJugador == null) return "no se encontro el PlayerStats del jugador";
+        if (inventarioJugador == null) return "no se encontro el Inventory del jugador";
+        if (inventarioJugador.IsFull) return "inventario lleno (" + inventarioJugador.Count + "/" + inventarioJugador.Capacity + ")";
+        if (!statsJugador.PuedePagar(articulo.precio)) return "te faltan " + (articulo.precio - statsJugador.Oro) + " de oro";
 
-        if (inventarioJugador.IsFull)
+        return null;
+    }
+
+    void Comprar(ItemComercio articulo)
+    {
+        string motivo = MotivoNoCompra(articulo);
+        if (motivo != null)
         {
-            AvisosUI.Alertar("Inventario lleno");
+            string nombre = articulo != null && articulo.item != null ? articulo.item.itemName : "(sin ItemData)";
+            Debug.Log($"ShopManager: no se compro '{nombre}' ({articulo?.precio} de oro): {motivo}. " +
+                $"Oro del jugador: {(statsJugador != null ? statsJugador.Oro : 0)}.", this);
+            AvisosUI.Alertar(ConMayuscula(motivo));
             return;
         }
 
-        if (!statsJugador.GastarOro(item.precio))
+        if (!statsJugador.GastarOro(articulo.precio))
         {
+            // No deberia pasar nunca: MotivoNoCompra ya pregunto PuedePagar. Si pasa, algo cambio el
+            // oro entre el chequeo y el cobro, y conviene enterarse en vez de seguir de largo.
+            Debug.LogWarning($"ShopManager: GastarOro({articulo.precio}) fallo aunque PuedePagar habia " +
+                $"dicho que si. Oro: {statsJugador.Oro}.", this);
             AvisosUI.Alertar("Oro insuficiente");
             return;
         }
 
-        inventarioJugador.AddItem(item.item);
-        item.cantidad--;
-        Debug.Log("Comprado: " + item.item.itemName + " por " + item.precio + " oro. Quedan " + item.cantidad + " en la tienda.");
+        // El resultado de AddItem SE MIRA. Antes se ignoraba: si AddItem fallaba el oro ya estaba
+        // cobrado y el stock descontado, asi que el jugador pagaba y no recibia nada. Es improbable
+        // -IsFull se chequea arriba- pero es justo el tipo de fallo que no se puede devolver.
+        if (!inventarioJugador.AddItem(articulo.item))
+        {
+            statsJugador.AgregarOro(articulo.precio);
+            Debug.LogWarning($"ShopManager: no se pudo agregar '{articulo.item.itemName}' al inventario " +
+                $"({inventarioJugador.Count}/{inventarioJugador.Capacity}); se devolvieron {articulo.precio} de oro.", this);
+            AvisosUI.Alertar("Inventario lleno");
+            return;
+        }
+
+        articulo.cantidad--;
+        Debug.Log($"ShopManager: comprado '{articulo.item.itemName}' por {articulo.precio} de oro. " +
+            $"Quedan {articulo.cantidad} en la tienda, el jugador tiene {statsJugador.Oro} de oro y " +
+            $"{inventarioJugador.Count}/{inventarioJugador.Capacity} en el inventario.", this);
 
         AvisosUI.Mostrar("Intercambio realizado");
         ActualizarUI();
     }
 
+    static string ConMayuscula(string texto)
+    {
+        return string.IsNullOrEmpty(texto) ? texto : char.ToUpperInvariant(texto[0]) + texto.Substring(1);
+    }
+
     void Vender(ItemComercio item)
     {
-        if (item.item == null || inventarioJugador == null) return;
-        if (!inventarioJugador.RemoveItem(item.item)) return;
+        if (item.item == null || inventarioJugador == null)
+        {
+            Debug.LogWarning("ShopManager: no se puede vender; la entrada no tiene ItemData o no se " +
+                "encontro el Inventory del jugador.", this);
+            return;
+        }
+
+        if (!inventarioJugador.RemoveItem(item.item))
+        {
+            Debug.Log($"ShopManager: no se vendio '{item.item.itemName}': el jugador no lo tiene en el inventario.", this);
+            AvisosUI.Alertar("No lo tenés");
+            return;
+        }
 
         item.cantidad++;
         statsJugador.AgregarOro(item.precio);
-        Debug.Log("Vendido: " + item.item.itemName + ". La tienda ahora tiene " + item.cantidad + ".");
+        Debug.Log($"ShopManager: vendido '{item.item.itemName}' por {item.precio} de oro. " +
+            $"La tienda ahora tiene {item.cantidad} y el jugador {statsJugador.Oro} de oro.", this);
 
         AvisosUI.Mostrar("Intercambio realizado");
         ActualizarUI();
