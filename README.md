@@ -37,16 +37,28 @@ nombre que aparece en el historial no siempre coincide con el de su cuenta de Gi
 - **GitHub Issues** — requisitos, historias de usuario, tareas y bugs
 - **GitHub Pull Requests** — integración de cada rama de trabajo
 
-## Ejecución
+## Descarga y Ejecución
 
 ### Requisitos
+* Sistema Operativo: Windows 10 / 11 (64-bit).
+* Controles: Teclado y ratón.
 
-- Unity **6000.5.9f1** (se recomienda instalarlo desde Unity Hub; otras versiones pueden
-  reimportar assets y modificar archivos del proyecto).
-- Git para clonar el repositorio.
-- Windows. El proyecto se desarrolla y prueba sobre Windows.
+### Pasos para Jugar
 
-### Pasos
+1. Entrá a la sección **[Releases](https://github.com/anasheiew21-rgb/Between-Metals/releases)**
+   de este repositorio (no uses el botón **Code → Download ZIP**: eso descarga el código
+   fuente del proyecto de Unity, no una build jugable).
+2. En el release más reciente, descargá el archivo comprimido adjunto (por ejemplo
+   `Between-Metals-main.zip`) desde la sección **Assets**.
+3. Descomprimí el archivo en cualquier carpeta de tu equipo.
+4. Ejecutá `BetweenMetals.exe` para empezar a jugar.
+
+> **Nota:** No se requiere instalación ni programas adicionales. Todos los sistemas de interfaz, sonidos y lógica de juego están empaquetados dentro del ejecutable.
+
+### Para desarrolladores (código fuente)
+
+Si en cambio querés abrir el proyecto en el Editor de Unity (no para jugar la build, sino
+para seguir desarrollando):
 
 1. Clonar el repositorio:
 
