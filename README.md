@@ -48,10 +48,10 @@ nombre que aparece en el historial no siempre coincide con el de su cuenta de Gi
 1. Entrá a la sección **[Releases](https://github.com/anasheiew21-rgb/Between-Metals/releases)**
    de este repositorio (no uses el botón **Code → Download ZIP**: eso descarga el código
    fuente del proyecto de Unity, no una build jugable).
-2. En el release más reciente, descargá el archivo comprimido adjunto (por ejemplo
-   `Between-Metals-main.zip`) desde la sección **Assets**.
+2. En el release más reciente, descargá el archivo `.zip` adjunto en la sección
+   **Assets** (es la build exportada, no el código fuente).
 3. Descomprimí el archivo en cualquier carpeta de tu equipo.
-4. Ejecutá `BetweenMetals.exe` para empezar a jugar.
+4. Ejecutá `Between Metals.exe` para empezar a jugar.
 
 > **Nota:** No se requiere instalación ni programas adicionales. Todos los sistemas de interfaz, sonidos y lógica de juego están empaquetados dentro del ejecutable.
 
