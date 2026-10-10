@@ -37,37 +37,20 @@ nombre que aparece en el historial no siempre coincide con el de su cuenta de Gi
 - **GitHub Issues** — requisitos, historias de usuario, tareas y bugs
 - **GitHub Pull Requests** — integración de cada rama de trabajo
 
-## Ejecución
+## Descarga y Ejecución
 
 ### Requisitos
+* Sistema Operativo: Windows 10 / 11 (64-bit)[cite: 5].
+* Controles: Teclado y ratón[cite: 5].
 
-- Unity **6000.5.9f1** (se recomienda instalarlo desde Unity Hub; otras versiones pueden
-  reimportar assets y modificar archivos del proyecto).
-- Git para clonar el repositorio.
-- Windows. El proyecto se desarrolla y prueba sobre Windows.
+### Pasos para Jugar
 
-### Pasos
+1. Haz clic en el botón verde **Code** (ubicado en la parte superior derecha de esta página) y selecciona la opción **Download ZIP**.
+2. Descomprime el archivo `.zip` en cualquier carpeta de tu equipo.
+3. Dentro de la carpeta extraída, abre el archivo `.rar` que contiene la versión ejecutable del juego.
+4. Extrae la carpeta de la *build* y ejecuta el archivo `BetweenMetals.exe` para comenzar a jugar.
 
-1. Clonar el repositorio:
-
-   ```
-   git clone https://github.com/anasheiew21-rgb/Between-Metals.git
-   ```
-
-2. Abrir la carpeta del proyecto desde Unity Hub con la versión `6000.5.9f1`. La primera
-   apertura importa los assets y puede tardar varios minutos.
-3. Abrir la escena de inicio **`Assets/Scenes/MenuPrincipal.unity`** (es la primera de
-   Build Settings) o, para entrar directamente al laberinto, **`Assets/Scenes/Prototype.unity`**.
-4. Entrar en Play Mode.
-
-No hace falta configuración manual adicional: los sistemas de interfaz y de gestión de
-partida (HUD, inventario, menú, gestor de barreras, NavMesh en runtime) se auto-instalan
-al cargar la escena mediante `RuntimeInitializeOnLoadMethod`, así que no dependen de
-objetos colocados a mano en la jerarquía. El audio sigue el mismo criterio: la música y
-los sonidos de pasos, ítems, linterna y botones se enganchan solos, y los clips se
-resuelven por nombre desde `Assets/Audio/Resources` (ver
-[`Docs/audio-y-modelo-enemigos.md`](Docs/audio-y-modelo-enemigos.md)).
-
+> **Nota:** No se requiere instalación ni programas adicionales. Todos los sistemas de interfaz, sonidos y lógica de juego están empaquetados dentro del ejecutable.
 ### Controles
 
 | Acción | Tecla | Reasignable |
